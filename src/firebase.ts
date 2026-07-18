@@ -12,7 +12,7 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
-import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense } from './types';
+import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, Drawing } from './types';
 
 // Load credentials from firebase-applet-config.json style config
 const firebaseConfig = {
@@ -37,6 +37,7 @@ const repaymentsCol = collection(db, 'repayments');
 const incomeCol = collection(db, 'income');
 const expenseCol = collection(db, 'expense');
 const settingsCol = collection(db, 'settings');
+const drawingsCol = collection(db, 'drawings');
 
 // ---------------- MEMBERS API ----------------
 export async function saveMember(member: Member): Promise<void> {
@@ -200,6 +201,28 @@ export async function getSettingsPassword(): Promise<string> {
   return '6780'; // default password
 }
 
+// ---------------- DRAWINGS API ----------------
+export async function saveDrawing(drawing: Drawing): Promise<void> {
+  const docRef = doc(drawingsCol, drawing.id);
+  await setDoc(docRef, drawing);
+}
+
+export async function deleteDrawing(drawingId: string): Promise<void> {
+  const docRef = doc(drawingsCol, drawingId);
+  await deleteDoc(docRef);
+}
+
+export function subscribeDrawings(onUpdate: (drawings: Drawing[]) => void) {
+  const q = query(drawingsCol, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const list: Drawing[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as Drawing);
+    });
+    onUpdate(list);
+  });
+}
+
 export async function clearAllMembersAndData(): Promise<void> {
   const collectionsToClear = [
     membersCol,
@@ -207,7 +230,8 @@ export async function clearAllMembersAndData(): Promise<void> {
     loansCol,
     repaymentsCol,
     incomeCol,
-    expenseCol
+    expenseCol,
+    drawingsCol
   ];
 
   for (const colRef of collectionsToClear) {

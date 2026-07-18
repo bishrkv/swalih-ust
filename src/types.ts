@@ -31,6 +31,7 @@ export interface Loan {
   notes: string;
   paymentMode: 'Cash' | 'Google Pay';
   createdAt: number;
+  type?: 'given' | 'loan';
 }
 
 export interface LoanRepayment {
@@ -69,12 +70,23 @@ export interface SystemSettings {
   passwordHash: string; // Defaults to hashing/saving 6780, can be updated
 }
 
+export interface Drawing {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number;
+  description: string;
+  fromAccount: string; // "Google Pay"
+  toAccount: string; // "Hand/Cash"
+  createdAt: number;
+}
+
 export type ActiveTab =
   | 'dashboard'
   | 'members'
   | 'profile'
   | 'collection'
+  | 'given'
   | 'loans'
-  | 'repayments'
+  | 'drawings'
   | 'reports'
   | 'settings';

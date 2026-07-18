@@ -37,10 +37,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
   const [sortField, setSortField] = useState<keyof Member>('memberNo');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-
   // Modals / forms state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -103,14 +99,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
         return 0;
       });
   }, [members, searchTerm, statusFilter, sortField, sortOrder]);
-
-  // Paginated data
-  const paginatedMembers = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredMembers.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredMembers, currentPage]);
-
-  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
 
   // Open modal for add
   const openAddModal = () => {
@@ -304,7 +292,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              setCurrentPage(1);
             }}
             className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm font-medium"
             id="members-search-input"
@@ -318,7 +305,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
               key={filter}
               onClick={() => {
                 setStatusFilter(filter);
-                setCurrentPage(1);
               }}
               className={`flex-1 md:flex-initial px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 statusFilter === filter
@@ -364,14 +350,14 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
-              {paginatedMembers.length === 0 ? (
+              {filteredMembers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
                     No members found matching selected criteria.
                   </td>
                 </tr>
               ) : (
-                paginatedMembers.map((member) => (
+                filteredMembers.map((member) => (
                   <tr
                     key={member.memberNo}
                     className="hover:bg-zinc-50/40 dark:hover:bg-zinc-800/20 transition-colors group"
@@ -469,50 +455,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
         </div>
 
         {/* Pagination Section */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/30 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-              <span className="font-bold">
-                {Math.min(currentPage * itemsPerPage, filteredMembers.length)}
-              </span>{' '}
-              of <span className="font-bold">{filteredMembers.length}</span> members
-            </span>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 rounded-lg text-zinc-600 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                id="pagination-prev-btn"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    currentPage === page
-                      ? 'bg-emerald-700 text-white border-emerald-700'
-                      : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700'
-                  }`}
-                  id={`pagination-page-btn-${page}`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 rounded-lg text-zinc-600 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                id="pagination-next-btn"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Add / Edit Member Modal */}

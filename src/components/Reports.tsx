@@ -160,19 +160,36 @@ export default function Reports({
         };
       });
     } else if (selectedReport === 'loan') {
-      sheetData = loans.map(l => {
-        const reps = repayments.filter(r => r.memberNo === l.memberNo).reduce((sum, r) => sum + r.amount, 0);
-        return {
+      const loanList = loans.filter(l => l.type === 'loan' || !l.type);
+      const givenList = loans.filter(l => l.type === 'given');
+
+      sheetData = [
+        ...loanList.map(l => {
+          const reps = repayments.filter(r => r.memberNo === l.memberNo).reduce((sum, r) => sum + r.amount, 0);
+          return {
+            'Type': 'Loan (Repayable)',
+            'Disbursement Date': l.date,
+            'Member No': l.memberNo,
+            'Member Name': l.memberName,
+            'Principal Amount': l.amount,
+            'Total Repaid to Date': reps,
+            'Remaining Balance': l.amount - reps,
+            'Reason': l.reason,
+            'Payment Mode': l.paymentMode
+          };
+        }),
+        ...givenList.map(l => ({
+          'Type': 'Given Amount (Non-Repayable)',
           'Disbursement Date': l.date,
           'Member No': l.memberNo,
           'Member Name': l.memberName,
           'Principal Amount': l.amount,
-          'Total Repaid to Date': reps,
-          'Remaining Balance': l.amount - reps,
+          'Total Repaid to Date': 0,
+          'Remaining Balance': 0,
           'Reason': l.reason,
           'Payment Mode': l.paymentMode
-        };
-      });
+        }))
+      ];
     } else if (selectedReport === 'income') {
       sheetData = income.map(i => ({
         'Date': i.date,
@@ -559,47 +576,91 @@ export default function Reports({
 
           {/* 5. LOANS REPORT */}
           {selectedReport === 'loan' && (
-            <div className="space-y-6">
-              <div className="border-b border-zinc-100 dark:border-zinc-800 pb-4">
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Approved Loans & Balances</h2>
-                <p className="text-xs text-zinc-400 mt-1">Complete statement of outstanding principal balances</p>
+            <div className="space-y-8">
+              {/* Table 1: Loans */}
+              <div className="space-y-4">
+                <div className="border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Approved Loans & Balances</h2>
+                  <p className="text-xs text-zinc-400 mt-1">Complete statement of outstanding principal balances</p>
+                </div>
+
+                <div className="overflow-x-auto border border-zinc-100 dark:border-zinc-800 rounded-2xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800 text-zinc-400 font-bold">
+                        <th className="px-4 py-3">Member Name</th>
+                        <th className="px-4 py-3">Disbursement</th>
+                        <th className="px-4 py-3">Total Repaid</th>
+                        <th className="px-4 py-3">Loan Balance</th>
+                        <th className="px-4 py-3">Reason</th>
+                        <th className="px-4 py-3">Payment Mode</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {loans.filter((l) => l.type === 'loan' || !l.type).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-6 text-zinc-400 font-medium">No active loans logged.</td>
+                        </tr>
+                      ) : (
+                        loans.filter((l) => l.type === 'loan' || !l.type).map((l) => {
+                          const reps = repayments.filter(r => r.memberNo === l.memberNo).reduce((sum, r) => sum + r.amount, 0);
+                          const mBal = l.amount - reps;
+                          return (
+                            <tr key={l.id} className="hover:bg-zinc-50/50">
+                              <td className="px-4 py-2.5 font-bold">{l.memberName}</td>
+                              <td className="px-4 py-2.5 font-bold font-mono">₹{l.amount.toLocaleString('en-IN')}</td>
+                              <td className="px-4 py-2.5 font-bold font-mono text-emerald-600">₹{reps.toLocaleString('en-IN')}</td>
+                              <td className="px-4 py-2.5 font-bold font-mono text-rose-600">₹{mBal.toLocaleString('en-IN')}</td>
+                              <td className="px-4 py-2.5 text-zinc-500">{l.reason}</td>
+                              <td className="px-4 py-2.5 text-zinc-500">{l.paymentMode || 'Cash'}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              <div className="overflow-x-auto border border-zinc-100 dark:border-zinc-800 rounded-2xl">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800 text-zinc-400 font-bold">
-                      <th className="px-4 py-3">Member Name</th>
-                      <th className="px-4 py-3">Disbursement</th>
-                      <th className="px-4 py-3">Total Repaid</th>
-                      <th className="px-4 py-3">Loan Balance</th>
-                      <th className="px-4 py-3">Reason</th>
-                      <th className="px-4 py-3">Payment Mode</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {loans.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="text-center py-6 text-zinc-400 font-medium">No loans logged.</td>
+              {/* Table 2: Given Amounts */}
+              <div className="space-y-4">
+                <div className="border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Given Amounts (Grants)</h2>
+                  <p className="text-xs text-zinc-400 mt-1">Audit log of all non-repayable aid given to members</p>
+                </div>
+
+                <div className="overflow-x-auto border border-zinc-100 dark:border-zinc-800 rounded-2xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800 text-zinc-400 font-bold">
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Member Name</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Purpose / Reason</th>
+                        <th className="px-4 py-3">Payment Mode</th>
+                        <th className="px-4 py-3">Notes</th>
                       </tr>
-                    ) : (
-                      loans.map((l) => {
-                        const reps = repayments.filter(r => r.memberNo === l.memberNo).reduce((sum, r) => sum + r.amount, 0);
-                        const mBal = l.amount - reps;
-                        return (
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {loans.filter((l) => l.type === 'given').length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-6 text-zinc-400 font-medium">No given amounts logged.</td>
+                        </tr>
+                      ) : (
+                        loans.filter((l) => l.type === 'given').map((l) => (
                           <tr key={l.id} className="hover:bg-zinc-50/50">
+                            <td className="px-4 py-2.5 font-mono">{l.date}</td>
                             <td className="px-4 py-2.5 font-bold">{l.memberName}</td>
-                            <td className="px-4 py-2.5 font-bold font-mono">₹{l.amount.toLocaleString('en-IN')}</td>
-                            <td className="px-4 py-2.5 font-bold font-mono text-emerald-600">₹{reps.toLocaleString('en-IN')}</td>
-                            <td className="px-4 py-2.5 font-bold font-mono text-rose-600">₹{mBal.toLocaleString('en-IN')}</td>
-                            <td className="px-4 py-2.5 text-zinc-500">{l.reason}</td>
+                            <td className="px-4 py-2.5 font-bold font-mono text-amber-600">₹{l.amount.toLocaleString('en-IN')}</td>
+                            <td className="px-4 py-2.5 text-zinc-800 dark:text-zinc-200">{l.reason}</td>
                             <td className="px-4 py-2.5 text-zinc-500">{l.paymentMode || 'Cash'}</td>
+                            <td className="px-4 py-2.5 text-zinc-500 italic">{l.notes || '-'}</td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

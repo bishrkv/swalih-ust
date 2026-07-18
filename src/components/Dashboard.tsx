@@ -12,7 +12,7 @@ import {
   Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, ActiveTab } from '../types';
+import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, ActiveTab, Drawing } from '../types';
 
 interface DashboardProps {
   members: Member[];
@@ -21,6 +21,7 @@ interface DashboardProps {
   repayments: LoanRepayment[];
   income: Income[];
   expense: Expense[];
+  drawings?: Drawing[];
   onNavigate: (tab: ActiveTab, memberNo?: string) => void;
 }
 
@@ -31,6 +32,7 @@ export default function Dashboard({
   repayments,
   income,
   expense,
+  drawings = [],
   onNavigate
 }: DashboardProps) {
   const [time, setTime] = useState(new Date());
@@ -50,8 +52,18 @@ export default function Dashboard({
     .filter(c => c.status === 'Paid')
     .reduce((sum, c) => sum + c.amount, 0);
 
+  // Given Amounts (Grants)
+  const totalGivenAmount = loans
+    .filter(l => l.type === 'given')
+    .reduce((sum, l) => sum + l.amount, 0);
+
   // Loans Given
-  const totalGiven = loans.reduce((sum, l) => sum + l.amount, 0);
+  const totalLoans = loans
+    .filter(l => l.type === 'loan' || !l.type)
+    .reduce((sum, l) => sum + l.amount, 0);
+
+  // Loans & Given combined for total cash outflows
+  const totalGiven = totalGivenAmount + totalLoans;
 
   // Loan Repayments (returned)
   const totalRepayments = repayments.reduce((sum, r) => sum + r.amount, 0);
@@ -82,7 +94,9 @@ export default function Dashboard({
     .filter(e => e.paymentMode === 'Cash' || !e.paymentMode)
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const cashInHand = (collectionsCash + incomeCash + repaymentsCash) - (loansCash + expenseCash);
+  const totalWithdrawn = drawings.reduce((sum, d) => sum + d.amount, 0);
+
+  const cashInHand = (collectionsCash + incomeCash + repaymentsCash + totalWithdrawn) - (loansCash + expenseCash);
 
   // Google Pay calculations
   const collectionsGPay = collections
@@ -101,7 +115,7 @@ export default function Dashboard({
     .filter(e => e.paymentMode === 'Google Pay')
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const googlePayBalance = (collectionsGPay + incomeGPay + repaymentsGPay) - (loansGPay + expenseGPay);
+  const googlePayBalance = (collectionsGPay + incomeGPay + repaymentsGPay) - (loansGPay + expenseGPay + totalWithdrawn);
 
   // Formatted date and time
   const formattedDate = time.toLocaleDateString('en-US', {
@@ -177,16 +191,6 @@ export default function Dashboard({
 
   const statsCards = [
     {
-      title: 'Total Members',
-      value: totalMembers,
-      subtitle: `${activeMembers} Active Members`,
-      icon: Users,
-      color: 'from-teal-500 to-emerald-600',
-      textColor: 'text-teal-600 dark:text-teal-400',
-      bgColor: 'bg-teal-50 dark:bg-teal-950/20',
-      tab: 'members' as const
-    },
-    {
       title: 'Total Collection',
       value: `₹${totalCollection.toLocaleString('en-IN')}`,
       subtitle: 'Monthly Collections Paid',
@@ -197,13 +201,23 @@ export default function Dashboard({
       tab: 'collection' as const
     },
     {
-      title: 'Total Given (Loans)',
-      value: `₹${totalGiven.toLocaleString('en-IN')}`,
-      subtitle: `Remaining: ₹${(totalGiven - totalRepayments).toLocaleString('en-IN')}`,
+      title: 'Given Amount',
+      value: `₹${totalGivenAmount.toLocaleString('en-IN')}`,
+      subtitle: 'Non-repayable grants',
       icon: ArrowUpRight,
-      color: 'from-amber-500 to-orange-600',
+      color: 'from-amber-500 to-amber-600',
       textColor: 'text-amber-600 dark:text-amber-400',
       bgColor: 'bg-amber-50 dark:bg-amber-950/20',
+      tab: 'given' as const
+    },
+    {
+      title: 'Loans Given',
+      value: `₹${totalLoans.toLocaleString('en-IN')}`,
+      subtitle: `Remaining: ₹${(totalLoans - totalRepayments).toLocaleString('en-IN')}`,
+      icon: ArrowUpRight,
+      color: 'from-rose-500 to-rose-600',
+      textColor: 'text-rose-600 dark:text-rose-400',
+      bgColor: 'bg-rose-50 dark:bg-rose-950/20',
       tab: 'loans' as const
     },
     {
@@ -243,8 +257,13 @@ export default function Dashboard({
       {/* Top Banner and Time */}
       <div className="bg-gradient-to-r from-emerald-800 to-emerald-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
-        <div className="space-y-2 relative z-10">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sali</h1>
+        <div className="space-y-3 relative z-10">
+          <div className="flex flex-wrap gap-2 items-center">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sali</h1>
+            <span className="px-2.5 py-0.5 bg-white/10 dark:bg-black/20 text-white rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/15">
+              {totalMembers} Members ({activeMembers} Active)
+            </span>
+          </div>
           <p className="text-emerald-100 max-w-xl text-sm leading-relaxed">
             Welcome to the USBA Marriage Fund
           </p>

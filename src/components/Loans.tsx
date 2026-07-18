@@ -23,18 +23,11 @@ interface LoansProps {
   loans: Loan[];
   repayments: LoanRepayment[];
   addToast: (text: string, type: 'success' | 'error' | 'info') => void;
-  forcedTab?: 'given' | 'repayments';
 }
 
-export default function Loans({ members, loans, repayments, addToast, forcedTab }: LoansProps) {
+export default function Loans({ members, loans, repayments, addToast }: LoansProps) {
   // Navigation tabs for Loans view
-  const [activeSubTab, setActiveSubTab] = useState<'given' | 'repayments'>(forcedTab || 'given');
-
-  React.useEffect(() => {
-    if (forcedTab) {
-      setActiveSubTab(forcedTab);
-    }
-  }, [forcedTab]);
+  const [activeSubTab, setActiveSubTab] = useState<'given' | 'repayments'>('given');
 
   // Modal open states
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -46,13 +39,15 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
   const [loanAmount, setLoanAmount] = useState('');
   const [loanReason, setLoanReason] = useState('');
   const [loanNotes, setLoanNotes] = useState('');
-  const [loanPayMode, setLoanPayMode] = useState<'Cash' | 'Google Pay'>('Cash');
+  const [loanPayMode, setLoanPayMode] = useState<'Cash' | 'Google Pay'>('Google Pay');
+  const [isCustomMember, setIsCustomMember] = useState(false);
+  const [customMemberName, setCustomMemberName] = useState('');
 
   // Form states - Repayment
   const [repayMemberNo, setRepayMemberNo] = useState('');
   const [repayDate, setRepayDate] = useState(new Date().toISOString().split('T')[0]);
   const [repayAmount, setRepayAmount] = useState('');
-  const [repayPayMode, setRepayPayMode] = useState<'Cash' | 'Google Pay'>('Cash');
+  const [repayPayMode, setRepayPayMode] = useState<'Cash' | 'Google Pay'>('Google Pay');
   const [repayNotes, setRepayNotes] = useState('');
 
   // Delete flow state
@@ -63,10 +58,15 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
     return members.filter((m) => m.status === 'Active');
   }, [members]);
 
+  // Filter only 'loan' type (for backward compatibility, empty/undefined type is also 'loan')
+  const actualLoans = useMemo(() => {
+    return loans.filter((l) => l.type === 'loan' || !l.type);
+  }, [loans]);
+
   // Aggregate sums
   const totalGiven = useMemo(() => {
-    return loans.reduce((sum, l) => sum + l.amount, 0);
-  }, [loans]);
+    return actualLoans.reduce((sum, l) => sum + l.amount, 0);
+  }, [actualLoans]);
 
   const totalRepaid = useMemo(() => {
     return repayments.reduce((sum, r) => sum + r.amount, 0);
@@ -78,9 +78,19 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!memberNo || !loanAmount || !loanReason) {
-      addToast('Please fill all required fields', 'error');
-      return;
+    const finalMemberNo = isCustomMember ? `CUST-${Date.now().toString().slice(-6)}` : memberNo;
+    const finalMemberName = isCustomMember ? customMemberName.trim() : '';
+
+    if (isCustomMember) {
+      if (!customMemberName.trim() || !loanAmount || !loanReason) {
+        addToast('Please fill all required fields', 'error');
+        return;
+      }
+    } else {
+      if (!memberNo || !loanAmount || !loanReason) {
+        addToast('Please fill all required fields', 'error');
+        return;
+      }
     }
 
     const amt = parseFloat(loanAmount);
@@ -89,32 +99,41 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
       return;
     }
 
-    const selectedMember = members.find((m) => m.memberNo === memberNo);
-    if (!selectedMember) return;
+    let selectedMemberName = '';
+    if (isCustomMember) {
+      selectedMemberName = finalMemberName;
+    } else {
+      const selectedMember = members.find((m) => m.memberNo === memberNo);
+      if (!selectedMember) return;
+      selectedMemberName = selectedMember.memberName;
+    }
 
     const loanObj: Loan = {
       id: `loan_${Date.now()}`,
-      memberNo,
-      memberName: selectedMember.memberName,
+      memberNo: finalMemberNo,
+      memberName: selectedMemberName,
       date: loanDate,
       amount: amt,
       reason: loanReason.trim(),
       notes: loanNotes.trim(),
       paymentMode: loanPayMode,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      type: 'loan' // Explicitly set to 'loan'
     };
 
     try {
       await saveLoan(loanObj);
-      addToast(`Loan of ₹${amt.toLocaleString('en-IN')} approved for ${selectedMember.memberName}`, 'success');
+      addToast(`Loan of ₹${amt.toLocaleString('en-IN')} approved for ${selectedMemberName}`, 'success');
       setIsLoanModalOpen(false);
 
       // Reset
       setMemberNo('');
+      setCustomMemberName('');
+      setIsCustomMember(false);
       setLoanAmount('');
       setLoanReason('');
       setLoanNotes('');
-      setLoanPayMode('Cash');
+      setLoanPayMode('Google Pay');
     } catch (err) {
       console.error(err);
       addToast('Failed to save loan disbursement', 'error');
@@ -137,7 +156,7 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
     }
 
     // Verify member has active loan balance
-    const memberLoansSum = loans.filter((l) => l.memberNo === repayMemberNo).reduce((sum, l) => sum + l.amount, 0);
+    const memberLoansSum = actualLoans.filter((l) => l.memberNo === repayMemberNo).reduce((sum, l) => sum + l.amount, 0);
     const memberRepaySum = repayments.filter((r) => r.memberNo === repayMemberNo).reduce((sum, r) => sum + r.amount, 0);
     const memberBal = memberLoansSum - memberRepaySum;
 
@@ -169,7 +188,7 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
       setRepayMemberNo('');
       setRepayAmount('');
       setRepayNotes('');
-      setRepayPayMode('Cash');
+      setRepayPayMode('Google Pay');
     } catch (err) {
       console.error(err);
       addToast('Failed to log loan repayment', 'error');
@@ -204,43 +223,31 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
             <span className="p-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-xl">
               <ArrowRightLeft className="w-5 h-5" />
             </span>
-            {forcedTab === 'given'
-              ? 'Given Amounts Ledger'
-              : forcedTab === 'repayments'
-              ? 'Repayments Log'
-              : 'Loans & Given Amounts Ledger'}
+            Loans & Repayments Ledger
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            {forcedTab === 'given'
-              ? 'Track capital disbursements and interest-free charity loans given to members.'
-              : forcedTab === 'repayments'
-              ? 'Track and log repayments of outstanding interest-free charity loans.'
-              : 'Track capital disbursements, interest-free charity loans, and repayment histories.'}
+            Track interest-free charity loans and repayment logs for members.
           </p>
         </div>
 
         {/* Header Action Buttons */}
         <div className="flex gap-2.5">
-          {(forcedTab === undefined || forcedTab === 'repayments') && (
-            <button
-              onClick={() => setIsRepayModalOpen(true)}
-              className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
-              id="loans-add-repay-btn"
-            >
-              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Receive Repayment
-            </button>
-          )}
-          {(forcedTab === undefined || forcedTab === 'given') && (
-            <button
-              onClick={() => setIsLoanModalOpen(true)}
-              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-              id="loans-add-loan-btn"
-            >
-              <Plus className="w-4 h-4" />
-              Give Loan
-            </button>
-          )}
+          <button
+            onClick={() => setIsRepayModalOpen(true)}
+            className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+            id="loans-add-repay-btn"
+          >
+            <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            Receive Repayment
+          </button>
+          <button
+            onClick={() => setIsLoanModalOpen(true)}
+            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            id="loans-add-loan-btn"
+          >
+            <Plus className="w-4 h-4" />
+            Give Loan
+          </button>
         </div>
       </div>
 
@@ -249,11 +256,11 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
         {/* Total Given */}
         <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-6 rounded-3xl shadow-sm flex items-center justify-between">
           <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Given</p>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Loans Given</p>
             <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">
               ₹{totalGiven.toLocaleString('en-IN')}
             </h3>
-            <p className="text-xs text-zinc-400 font-medium">All approved disbursements</p>
+            <p className="text-xs text-zinc-400 font-medium">All approved charity loans</p>
           </div>
           <div className="p-4 bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 rounded-2xl shrink-0">
             <DollarSign className="w-6 h-6" />
@@ -290,32 +297,30 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
       </div>
 
       {/* Subtab Selectors (Disbursed Loans vs Repayments logs) */}
-      {!forcedTab && (
-        <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1.5 rounded-2xl w-full max-w-sm">
-          <button
-            onClick={() => setActiveSubTab('given')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeSubTab === 'given'
-                ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-            id="loans-tab-given"
-          >
-            Approved Loans
-          </button>
-          <button
-            onClick={() => setActiveSubTab('repayments')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeSubTab === 'repayments'
-                ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-            id="loans-tab-repayments"
-          >
-            Repayments Log
-          </button>
-        </div>
-      )}
+      <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1.5 rounded-2xl w-full max-w-sm">
+        <button
+          onClick={() => setActiveSubTab('given')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === 'given'
+              ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+          id="loans-tab-given"
+        >
+          Approved Loans
+        </button>
+        <button
+          onClick={() => setActiveSubTab('repayments')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === 'repayments'
+              ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+          id="loans-tab-repayments"
+        >
+          Repayments Log
+        </button>
+      </div>
 
       {/* Ledger Lists */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
@@ -335,14 +340,14 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
-                {loans.length === 0 ? (
+                {actualLoans.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-12 text-zinc-400 font-medium">
                       No disbursed loans found in the registry.
                     </td>
                   </tr>
                 ) : (
-                  loans.map((loan) => (
+                  actualLoans.map((loan) => (
                     <tr key={loan.id} className="hover:bg-zinc-50/40 dark:hover:bg-zinc-800/10 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-zinc-500 dark:text-zinc-400">
                         {loan.date}
@@ -462,7 +467,7 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
             >
               {/* Header */}
               <div className="bg-gradient-to-r from-amber-700 to-amber-600 p-5 text-white flex items-center justify-between">
-                <h3 className="font-bold text-base" id="loan-modal-title">Approved Loan Disbursement</h3>
+                <h3 className="font-bold text-base" id="loan-modal-title">Disburse Charity Loan</h3>
                 <button onClick={() => setIsLoanModalOpen(false)} className="text-white/80 hover:text-white" id="close-loan-modal-btn">
                   ×
                 </button>
@@ -472,23 +477,51 @@ export default function Loans({ members, loans, repayments, addToast, forcedTab 
               <form onSubmit={handleSaveLoan} className="p-6 space-y-4">
                 {/* Select Member */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
-                    Beneficiary Member *
-                  </label>
-                  <select
-                    required
-                    value={memberNo}
-                    onChange={(e) => setMemberNo(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
-                    id="loan-form-member-select"
-                  >
-                    <option value="">-- Choose Member --</option>
-                    {activeMembers.map((m) => (
-                      <option key={m.memberNo} value={m.memberNo}>
-                        [{m.memberNo}] {m.memberName}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
+                      Beneficiary *
+                    </label>
+                    <label className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 font-bold cursor-pointer hover:underline selection:bg-transparent">
+                      <input
+                        type="checkbox"
+                        checked={isCustomMember}
+                        onChange={(e) => {
+                          setIsCustomMember(e.target.checked);
+                          setMemberNo('');
+                          setCustomMemberName('');
+                        }}
+                        className="rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      Type Custom Name
+                    </label>
+                  </div>
+                  
+                  {isCustomMember ? (
+                    <input
+                      type="text"
+                      required
+                      value={customMemberName}
+                      onChange={(e) => setCustomMemberName(e.target.value)}
+                      placeholder="Type beneficiary name here..."
+                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium text-sm"
+                      id="loan-form-member-custom-input"
+                    />
+                  ) : (
+                    <select
+                      required
+                      value={memberNo}
+                      onChange={(e) => setMemberNo(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium text-sm"
+                      id="loan-form-member-select"
+                    >
+                      <option value="">-- Choose Member --</option>
+                      {activeMembers.map((m) => (
+                        <option key={m.memberNo} value={m.memberNo}>
+                          [{m.memberNo}] {m.memberName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* Amount and Date */}

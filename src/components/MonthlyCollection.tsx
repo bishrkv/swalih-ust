@@ -90,7 +90,7 @@ export default function MonthlyCollection({
       amount: existing ? existing.amount.toString() : '2500', // default collection
       status: existing ? existing.status : 'Pending',
       remarks: existing ? existing.remarks : '',
-      paymentMode: existing ? existing.paymentMode : 'Cash'
+      paymentMode: existing ? existing.paymentMode : 'Google Pay'
     };
 
     const updated = {
@@ -123,7 +123,7 @@ export default function MonthlyCollection({
       amount: existing ? existing.amount.toString() : '2500', // standard default amount
       status: existing ? existing.status : 'Pending',
       remarks: existing ? existing.remarks : '',
-      paymentMode: existing ? (existing.paymentMode || 'Cash') : 'Cash',
+      paymentMode: existing ? (existing.paymentMode || 'Google Pay') : 'Google Pay',
       isDirty: false
     };
   };

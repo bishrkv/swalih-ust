@@ -18,14 +18,15 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 // Types and Firestore Client
-import { ActiveTab, Member, MonthlyCollection as ColType, Loan, LoanRepayment, Income, Expense } from './types';
+import { ActiveTab, Member, MonthlyCollection as ColType, Loan, LoanRepayment, Income, Expense, Drawing } from './types';
 import {
   subscribeMembers,
   subscribeCollections,
   subscribeLoans,
   subscribeRepayments,
   subscribeIncome,
-  subscribeExpense
+  subscribeExpense,
+  subscribeDrawings
 } from './firebase';
 
 // Subcomponents
@@ -35,7 +36,9 @@ import Dashboard from './components/Dashboard';
 import Members from './components/Members';
 import MemberProfile from './components/MemberProfile';
 import MonthlyCollection from './components/MonthlyCollection';
+import GivenAmount from './components/GivenAmount';
 import Loans from './components/Loans';
+import Drawings from './components/Drawings';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import Notification, { ToastMessage } from './components/Notification';
@@ -66,6 +69,7 @@ export default function App() {
   const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
   const [income, setIncome] = useState<Income[]>([]);
   const [expense, setExpense] = useState<Expense[]>([]);
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
 
   // For forcing manual sync refetches if needed
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -92,6 +96,7 @@ export default function App() {
     const unsubRepayments = subscribeRepayments((data) => setRepayments(data));
     const unsubIncome = subscribeIncome((data) => setIncome(data));
     const unsubExpense = subscribeExpense((data) => setExpense(data));
+    const unsubDrawings = subscribeDrawings((data) => setDrawings(data));
 
     return () => {
       unsubMembers();
@@ -100,6 +105,7 @@ export default function App() {
       unsubRepayments();
       unsubIncome();
       unsubExpense();
+      unsubDrawings();
     };
   }, [isLoggedIn, refreshTrigger]);
 
@@ -232,6 +238,7 @@ export default function App() {
               repayments={repayments}
               income={income}
               expense={expense}
+              drawings={drawings}
               onNavigate={handleNavigate}
             />
           )}
@@ -255,23 +262,27 @@ export default function App() {
             <MonthlyCollection members={members} collections={collections} addToast={addToast} />
           )}
 
+          {activeTab === 'given' && (
+            <GivenAmount
+              members={members}
+              loans={loans}
+              addToast={addToast}
+            />
+          )}
+
           {activeTab === 'loans' && (
             <Loans
               members={members}
               loans={loans}
               repayments={repayments}
               addToast={addToast}
-              forcedTab="given"
             />
           )}
 
-          {activeTab === 'repayments' && (
-            <Loans
-              members={members}
-              loans={loans}
-              repayments={repayments}
+          {activeTab === 'drawings' && (
+            <Drawings
+              drawings={drawings}
               addToast={addToast}
-              forcedTab="repayments"
             />
           )}
 
