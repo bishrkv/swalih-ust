@@ -220,6 +220,264 @@ export default function Settings({
     reader.readAsText(file);
   };
 
+  // Seeding State
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  // Seed Historical OCR Ledger Data (2025-2029)
+  const handleSeedHistoricalData = async () => {
+    setIsSeeding(true);
+    addToast('Seeding 4 years of Marriage Fund ledger records...', 'info');
+    try {
+      // 1. Members
+      const seedMembers: Member[] = [
+        { id: "1", memberNo: "1", memberName: "Swalih K. V.", phone: "+91 9845123456", address: "Kozhikode, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "2", memberNo: "2", memberName: "Bishr K. V.", phone: "+91 9744112233", address: "Malappuram, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "3", memberNo: "3", memberName: "Muhammad Abdul Rahman", phone: "+91 9020334455", address: "Kannur, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "4", memberNo: "4", memberName: "Faisal Ahmed", phone: "+91 8086223344", address: "Kozhikode, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "5", memberNo: "5", memberName: "Anas K.", phone: "+91 9544556677", address: "Wayanad, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "6", memberNo: "6", memberName: "Ibrahim Kutty", phone: "+91 9946889900", address: "Malappuram, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "7", memberNo: "7", memberName: "Shameer V. P.", phone: "+91 9895001122", address: "Kozhikode, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "8", memberNo: "8", memberName: "Jasim Hassan", phone: "+91 9747223344", address: "Palakkad, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "9", memberNo: "9", memberName: "Noufal Rahman", phone: "+91 9447112233", address: "Thrissur, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "10", memberNo: "10", memberName: "Abdul Latheef", phone: "+91 9846334455", address: "Ernakulam, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "11", memberNo: "11", memberName: "Rishad T. P.", phone: "+91 9048556677", address: "Malappuram, Kerala", status: "Active", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 },
+        { id: "12", memberNo: "12", memberName: "Ashique Ali", phone: "+91 9745112233", address: "Kozhikode, Kerala", status: "Inactive", createdAt: Date.now() - 1000 * 60 * 60 * 24 * 365 }
+      ];
+
+      for (const m of seedMembers) {
+        await saveMember(m);
+      }
+
+      // 2. Collections
+      const months = [
+        'May', 'June', 'July', 'August', 'September', 'October',
+        'November', 'December', 'January', 'February', 'March', 'April'
+      ];
+
+      // Seed 2025-2026
+      for (const m of seedMembers) {
+        if (m.memberNo === "12") {
+          for (let i = 0; i < 6; i++) {
+            const col: MonthlyCollection = {
+              id: `${m.memberNo}_2025-2026_${months[i]}`,
+              memberNo: m.memberNo,
+              memberName: m.memberName,
+              year: '2025-2026',
+              month: months[i],
+              amount: 500,
+              status: 'Paid',
+              remarks: 'Early collection',
+              paymentMode: 'Cash',
+              updatedAt: Date.now()
+            };
+            await saveMonthlyCollection(col);
+          }
+        } else {
+          const pmMode = ["1", "2", "3"].includes(m.memberNo) ? "Google Pay" : "Cash";
+          for (const month of months) {
+            const col: MonthlyCollection = {
+              id: `${m.memberNo}_2025-2026_${month}`,
+              memberNo: m.memberNo,
+              memberName: m.memberName,
+              year: '2025-2026',
+              month: month,
+              amount: 500,
+              status: 'Paid',
+              remarks: 'On time',
+              paymentMode: pmMode,
+              updatedAt: Date.now()
+            };
+            await saveMonthlyCollection(col);
+          }
+        }
+      }
+
+      // Seed 2026-2027 (May, June, July)
+      for (const m of seedMembers) {
+        if (m.memberNo === "12") continue;
+        const pmMode = ["1", "2", "3"].includes(m.memberNo) ? "Google Pay" : "Cash";
+        
+        await saveMonthlyCollection({
+          id: `${m.memberNo}_2026-2027_May`,
+          memberNo: m.memberNo,
+          memberName: m.memberName,
+          year: '2026-2027',
+          month: 'May',
+          amount: 500,
+          status: 'Paid',
+          remarks: 'Paid',
+          paymentMode: pmMode,
+          updatedAt: Date.now()
+        });
+
+        await saveMonthlyCollection({
+          id: `${m.memberNo}_2026-2027_June`,
+          memberNo: m.memberNo,
+          memberName: m.memberName,
+          year: '2026-2027',
+          month: 'June',
+          amount: 500,
+          status: 'Paid',
+          remarks: 'Paid',
+          paymentMode: pmMode,
+          updatedAt: Date.now()
+        });
+
+        const isPaid = parseInt(m.memberNo, 10) <= 7;
+        await saveMonthlyCollection({
+          id: `${m.memberNo}_2026-2027_July`,
+          memberNo: m.memberNo,
+          memberName: m.memberName,
+          year: '2026-2027',
+          month: 'July',
+          amount: 500,
+          status: isPaid ? 'Paid' : 'Pending',
+          remarks: isPaid ? 'Paid' : 'Awaiting payment',
+          paymentMode: pmMode,
+          updatedAt: Date.now()
+        });
+      }
+
+      // 3. Loans
+      const seedLoans: Loan[] = [
+        {
+          id: "seed_loan_1",
+          memberNo: "3",
+          memberName: "Muhammad Abdul Rahman",
+          amount: 10000,
+          date: "2025-06-15",
+          paymentMode: "Cash",
+          reason: "Sister's marriage help",
+          notes: "Repayment starting Sept 2025",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 300
+        },
+        {
+          id: "seed_loan_2",
+          memberNo: "6",
+          memberName: "Ibrahim Kutty",
+          amount: 15000,
+          date: "2025-11-10",
+          paymentMode: "Google Pay",
+          reason: "Daughter marriage expenses",
+          notes: "Approved in general body meeting",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 200
+        }
+      ];
+      for (const l of seedLoans) {
+        await saveLoan(l);
+      }
+
+      // 4. Repayments
+      const seedRepayments: LoanRepayment[] = [
+        {
+          id: "seed_rep_1",
+          loanId: "seed_loan_1",
+          memberNo: "3",
+          memberName: "Muhammad Abdul Rahman",
+          amount: 2000,
+          date: "2025-09-05",
+          paymentMode: "Cash",
+          notes: "1st installment",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 250
+        },
+        {
+          id: "seed_rep_2",
+          loanId: "seed_loan_1",
+          memberNo: "3",
+          memberName: "Muhammad Abdul Rahman",
+          amount: 3000,
+          date: "2025-11-02",
+          paymentMode: "Cash",
+          notes: "2nd installment",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 210
+        },
+        {
+          id: "seed_rep_3",
+          loanId: "seed_loan_2",
+          memberNo: "6",
+          memberName: "Ibrahim Kutty",
+          amount: 5000,
+          date: "2026-02-15",
+          paymentMode: "Google Pay",
+          notes: "Part payment",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 120
+        },
+        {
+          id: "seed_rep_4",
+          loanId: "seed_loan_1",
+          memberNo: "3",
+          memberName: "Muhammad Abdul Rahman",
+          amount: 1000,
+          date: "2026-04-10",
+          paymentMode: "Cash",
+          notes: "3rd installment",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 80
+        }
+      ];
+      for (const r of seedRepayments) {
+        await saveRepayment(r);
+      }
+
+      // 5. Incomes
+      const seedIncomes: Income[] = [
+        {
+          id: "seed_inc_1",
+          category: "Donation",
+          amount: 2500,
+          date: "2025-07-20",
+          paymentMode: "Cash",
+          description: "Donation from well-wisher bishr",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 280
+        },
+        {
+          id: "seed_inc_2",
+          category: "Bank Interest",
+          amount: 1500,
+          date: "2026-03-31",
+          paymentMode: "Google Pay",
+          description: "Savings account interest",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 100
+        }
+      ];
+      for (const i of seedIncomes) {
+        await saveIncome(i);
+      }
+
+      // 6. Expenses
+      const seedExpenses: Expense[] = [
+        {
+          id: "seed_exp_1",
+          category: "Auditing",
+          amount: 1500,
+          date: "2026-04-12",
+          paymentMode: "Google Pay",
+          description: "Professional auditor fees",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 78
+        },
+        {
+          id: "seed_exp_2",
+          category: "Stationery",
+          amount: 1000,
+          date: "2025-05-10",
+          paymentMode: "Cash",
+          description: "Purchase of physical registry books",
+          createdAt: Date.now() - 1000 * 60 * 60 * 24 * 340
+        }
+      ];
+      for (const e of seedExpenses) {
+        await saveExpense(e);
+      }
+
+      addToast('Successfully seeded marriage fund ledger with 4 years of historical OCR data!', 'success');
+      triggerDatabaseRefresh();
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to seed historical data: ' + (err as Error).message, 'error');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -371,6 +629,17 @@ export default function Settings({
             >
               <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Restore Backup File
+            </button>
+
+            {/* Seed Historical OCR Ledger Data */}
+            <button
+              onClick={handleSeedHistoricalData}
+              disabled={isSeeding}
+              className="px-4 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+              id="settings-seed-demo-data-btn"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSeeding ? 'animate-spin' : ''}`} />
+              {isSeeding ? 'Seeding Ledger...' : 'Seed Historical OCR Data (2025-2029)'}
             </button>
           </div>
         </div>
