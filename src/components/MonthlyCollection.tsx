@@ -299,7 +299,6 @@ export default function MonthlyCollection({
                 <th className="px-6 py-4 w-32">Amount (₹)</th>
                 <th className="px-6 py-4 w-36">Status</th>
                 <th className="px-6 py-4 w-40">Payment Mode</th>
-                <th className="px-6 py-4">Remarks</th>
                 <th className="px-6 py-4 w-28 text-center">Grand Total</th>
                 <th className="px-6 py-4 w-28 text-right">Action</th>
               </tr>
@@ -307,7 +306,7 @@ export default function MonthlyCollection({
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
               {filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-zinc-400 font-medium">
+                  <td colSpan={7} className="text-center py-12 text-zinc-400 font-medium">
                     No active members found.
                   </td>
                 </tr>
@@ -386,18 +385,6 @@ export default function MonthlyCollection({
                           <option value="Cash">Cash</option>
                           <option value="Google Pay">Google Pay</option>
                         </select>
-                      </td>
-
-                      {/* Remarks */}
-                      <td className="px-6 py-4">
-                        <input
-                          type="text"
-                          value={cell.remarks}
-                          onChange={(e) => handleCellChange(member.memberNo, 'remarks', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
-                          placeholder="None"
-                          id={`collection-remarks-input-${member.memberNo}`}
-                        />
                       </td>
 
                       {/* Member Grand Total Paid */}

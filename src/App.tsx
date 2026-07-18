@@ -90,7 +90,23 @@ export default function App() {
     if (!isLoggedIn) return;
 
     // Subscribe to all tables
-    const unsubMembers = subscribeMembers((data) => setMembers(data));
+    const unsubMembers = subscribeMembers((data) => {
+      const sorted = [...data].sort((a, b) => {
+        const numA = parseInt(a.memberNo, 10);
+        const numB = parseInt(b.memberNo, 10);
+        const isNumA = !isNaN(numA) && /^\d+$/.test(a.memberNo.trim());
+        const isNumB = !isNaN(numB) && /^\d+$/.test(b.memberNo.trim());
+
+        if (isNumA && isNumB) {
+          return numA - numB;
+        }
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+
+        return a.memberNo.trim().localeCompare(b.memberNo.trim(), undefined, { numeric: true, sensitivity: 'base' });
+      });
+      setMembers(sorted);
+    });
     const unsubCollections = subscribeCollections((data) => setCollections(data));
     const unsubLoans = subscribeLoans((data) => setLoans(data));
     const unsubRepayments = subscribeRepayments((data) => setRepayments(data));

@@ -86,15 +86,20 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
         if (sortField === 'memberNo') {
           const numA = parseInt(a.memberNo, 10);
           const numB = parseInt(b.memberNo, 10);
-          if (!isNaN(numA) && !isNaN(numB)) {
+          const isNumA = !isNaN(numA) && /^\d+$/.test(a.memberNo.trim());
+          const isNumB = !isNaN(numB) && /^\d+$/.test(b.memberNo.trim());
+
+          if (isNumA && isNumB) {
             return sortOrder === 'asc' ? numA - numB : numB - numA;
           }
+          if (isNumA) return sortOrder === 'asc' ? -1 : 1;
+          if (isNumB) return sortOrder === 'asc' ? 1 : -1;
         }
 
         if (typeof valA === 'string' && typeof valB === 'string') {
           return sortOrder === 'asc'
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
+            ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+            : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
         }
         return 0;
       });
