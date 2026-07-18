@@ -12,7 +12,7 @@ import {
   Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense } from '../types';
+import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, ActiveTab } from '../types';
 
 interface DashboardProps {
   members: Member[];
@@ -21,7 +21,7 @@ interface DashboardProps {
   repayments: LoanRepayment[];
   income: Income[];
   expense: Expense[];
-  onNavigate: (tab: 'dashboard' | 'members' | 'profile' | 'collection' | 'loans' | 'income' | 'expense' | 'reports' | 'settings', memberNo?: string) => void;
+  onNavigate: (tab: ActiveTab, memberNo?: string) => void;
 }
 
 export default function Dashboard({
@@ -244,9 +244,9 @@ export default function Dashboard({
       <div className="bg-gradient-to-r from-emerald-800 to-emerald-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
         <div className="space-y-2 relative z-10">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Assalamu Alaikum!</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sali</h1>
           <p className="text-emerald-100 max-w-xl text-sm leading-relaxed">
-            Welcome to the USBA Marriage Fund Management System. Your secure dashboard provides automated accounting, member reports, and real-time ledger tracking.
+            Welcome to the USBA Marriage Fund
           </p>
         </div>
 

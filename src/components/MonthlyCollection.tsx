@@ -87,7 +87,7 @@ export default function MonthlyCollection({
   const handleCellChange = (memberNo: string, field: string, value: any) => {
     const existing = currentCollectionsMap[memberNo];
     const bufferVal = editBuffer[memberNo] || {
-      amount: existing ? existing.amount.toString() : '500', // default collection
+      amount: existing ? existing.amount.toString() : '2500', // default collection
       status: existing ? existing.status : 'Pending',
       remarks: existing ? existing.remarks : '',
       paymentMode: existing ? existing.paymentMode : 'Cash'
@@ -120,7 +120,7 @@ export default function MonthlyCollection({
     }
 
     return {
-      amount: existing ? existing.amount.toString() : '500', // standard default amount
+      amount: existing ? existing.amount.toString() : '2500', // standard default amount
       status: existing ? existing.status : 'Pending',
       remarks: existing ? existing.remarks : '',
       paymentMode: existing ? (existing.paymentMode || 'Cash') : 'Cash',
@@ -347,7 +347,7 @@ export default function MonthlyCollection({
                           className={`w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border rounded-lg text-xs font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100 ${
                             cell.isDirty ? 'border-amber-400' : 'border-zinc-200 dark:border-zinc-700'
                           }`}
-                          placeholder="500"
+                          placeholder="2500"
                           id={`collection-amount-input-${member.memberNo}`}
                         />
                       </td>

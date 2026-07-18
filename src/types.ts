@@ -75,7 +75,6 @@ export type ActiveTab =
   | 'profile'
   | 'collection'
   | 'loans'
-  | 'income'
-  | 'expense'
+  | 'repayments'
   | 'reports'
   | 'settings';

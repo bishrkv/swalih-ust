@@ -9,7 +9,8 @@ import {
   Eye,
   EyeOff,
   Settings as SettingsIcon,
-  ShieldAlert
+  ShieldAlert,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense } from '../types';
@@ -21,8 +22,10 @@ import {
   saveLoan,
   saveRepayment,
   saveIncome,
-  saveExpense
+  saveExpense,
+  clearAllMembersAndData
 } from '../firebase';
+import ConfirmModal from './ConfirmModal';
 
 interface SettingsProps {
   members: Member[];
@@ -51,6 +54,26 @@ export default function Settings({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [savedPassword, setSavedPassword] = useState('6780');
+
+  // Danger Zone Clear Data State
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleClearAllData = async () => {
+    setIsConfirmOpen(false);
+    setIsClearing(true);
+    addToast('Clearing database records...', 'info');
+    try {
+      await clearAllMembersAndData();
+      addToast('All members and their data have been completely removed.', 'success');
+      triggerDatabaseRefresh();
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to clear database records: ' + (err as Error).message, 'error');
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   // Load Admin Password from DB
   useEffect(() => {
@@ -644,6 +667,42 @@ export default function Settings({
           </div>
         </div>
       </div>
+
+      {/* Danger Zone Section */}
+      <div className="bg-rose-50/30 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/40 p-6 rounded-3xl shadow-sm mt-6">
+        <div className="flex items-center gap-2 border-b border-rose-100 dark:border-rose-900/20 pb-3 mb-4">
+          <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <h2 className="text-base font-bold text-rose-700 dark:text-rose-400">Danger Zone</h2>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Clear Database & Remove All Members</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-2xl">
+              This will permanently delete all registered members, monthly collections, loans, loan repayments, and other transaction records from the website. This action is irreversible.
+            </p>
+          </div>
+          
+          <button
+            onClick={() => setIsConfirmOpen(true)}
+            disabled={isClearing}
+            className="px-5 py-3 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-800 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0"
+            id="settings-clear-all-data-btn"
+          >
+            <Trash2 className="w-4 h-4" />
+            {isClearing ? 'Clearing Data...' : 'Delete All Data'}
+          </button>
+        </div>
+      </div>
+
+      {/* Clear Database Confirm Modal */}
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        title="Clear All Database Records?"
+        message="Are you absolutely sure you want to delete all members, payment collections, loans, repayments, income, and expense records? This operation is permanent and cannot be undone."
+        onConfirm={handleClearAllData}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
     </div>
   );
 }

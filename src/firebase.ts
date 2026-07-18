@@ -199,3 +199,22 @@ export async function getSettingsPassword(): Promise<string> {
   }
   return '6780'; // default password
 }
+
+export async function clearAllMembersAndData(): Promise<void> {
+  const collectionsToClear = [
+    membersCol,
+    collectionsCol,
+    loansCol,
+    repaymentsCol,
+    incomeCol,
+    expenseCol
+  ];
+
+  for (const colRef of collectionsToClear) {
+    const snap = await getDocs(colRef);
+    for (const d of snap.docs) {
+      await deleteDoc(d.ref);
+    }
+  }
+}
+

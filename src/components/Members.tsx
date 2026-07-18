@@ -20,13 +20,13 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
-import { Member } from '../types';
+import { Member, ActiveTab } from '../types';
 import { saveMember, deleteMember } from '../firebase';
 import ConfirmModal from './ConfirmModal';
 
 interface MembersProps {
   members: Member[];
-  onNavigate: (tab: 'dashboard' | 'members' | 'profile' | 'collection' | 'loans' | 'income' | 'expense' | 'reports' | 'settings', memberNo?: string) => void;
+  onNavigate: (tab: ActiveTab, memberNo?: string) => void;
   addToast: (text: string, type: 'success' | 'error' | 'info') => void;
 }
 

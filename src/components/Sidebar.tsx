@@ -4,8 +4,6 @@ import {
   Users,
   CheckSquare,
   ArrowRightLeft,
-  DollarSign,
-  TrendingDown,
   FileText,
   Settings as SettingsIcon,
   LogOut,
@@ -13,7 +11,8 @@ import {
   Sun,
   Menu,
   X,
-  Building2
+  Building2,
+  History
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -38,9 +37,8 @@ export default function Sidebar({
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'members' as const, label: 'Members', icon: Users },
     { id: 'collection' as const, label: 'Monthly Collection', icon: CheckSquare },
-    { id: 'loans' as const, label: 'Loans / Given Amount', icon: ArrowRightLeft },
-    { id: 'income' as const, label: 'Income', icon: DollarSign },
-    { id: 'expense' as const, label: 'Expense', icon: TrendingDown },
+    { id: 'loans' as const, label: 'Given Amount', icon: ArrowRightLeft },
+    { id: 'repayments' as const, label: 'Repayments', icon: History },
     { id: 'reports' as const, label: 'Reports', icon: FileText },
     { id: 'settings' as const, label: 'Backup & Settings', icon: SettingsIcon }
   ];

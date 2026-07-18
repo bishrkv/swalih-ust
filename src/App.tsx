@@ -4,14 +4,11 @@ import {
   Users,
   CheckSquare,
   ArrowRightLeft,
-  DollarSign,
-  TrendingDown,
   FileText,
   Settings as SettingsIcon,
   LogOut,
   Moon,
   Sun,
-  Search,
   X,
   UserCheck,
   Coins,
@@ -39,7 +36,6 @@ import Members from './components/Members';
 import MemberProfile from './components/MemberProfile';
 import MonthlyCollection from './components/MonthlyCollection';
 import Loans from './components/Loans';
-import IncomeExpense from './components/IncomeExpense';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import Notification, { ToastMessage } from './components/Notification';
@@ -218,150 +214,7 @@ export default function App() {
       <main className="lg:col-span-9 min-h-screen flex flex-col p-6 max-w-7xl w-full mx-auto space-y-6">
         
         {/* Global Search Top Bar Header */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800/60 pb-5 print:hidden">
-          <div className="relative flex-1 max-w-md w-full">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-              <Search className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              placeholder="Global Search (Name, Phone, Month, Amount, Loan...)"
-              value={globalQuery}
-              onChange={(e) => {
-                setGlobalQuery(e.target.value);
-                setShowGlobalResults(true);
-              }}
-              onFocus={() => setShowGlobalResults(true)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs text-xs font-semibold"
-              id="global-search-input"
-            />
-            {globalQuery && (
-              <button
-                onClick={() => {
-                  setGlobalQuery('');
-                  setShowGlobalResults(false);
-                }}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                id="clear-global-search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-
-            {/* Global Search Popover Pop Results */}
-            <AnimatePresence>
-              {showGlobalResults && searchResults && (
-                <>
-                  <div
-                    onClick={() => setShowGlobalResults(false)}
-                    className="fixed inset-0 z-30"
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-12 left-0 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-40 max-h-[400px] overflow-y-auto p-4 space-y-4"
-                  >
-                    <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
-                        Search Matches
-                      </span>
-                      <button
-                        onClick={() => setShowGlobalResults(false)}
-                        className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Member matches */}
-                    {searchResults.members.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                          <Users className="w-3 h-3" /> Members
-                        </h4>
-                        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
-                          {searchResults.members.map((m) => (
-                            <button
-                              key={m.memberNo}
-                              onClick={() => {
-                                handleNavigate('profile', m.memberNo);
-                                setGlobalQuery('');
-                                setShowGlobalResults(false);
-                              }}
-                              className="w-full text-left py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 px-2 rounded-lg text-xs flex justify-between font-bold"
-                            >
-                              <span className="text-zinc-800 dark:text-zinc-200">{m.memberName}</span>
-                              <span className="text-emerald-700 dark:text-emerald-400 font-mono">No. {m.memberNo}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Collection matches */}
-                    {searchResults.collections.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                          <Coins className="w-3 h-3" /> Monthly Collections
-                        </h4>
-                        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
-                          {searchResults.collections.map((c, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                handleNavigate('collection');
-                                setGlobalQuery('');
-                                setShowGlobalResults(false);
-                              }}
-                              className="w-full text-left py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 px-2 rounded-lg text-xs flex justify-between font-bold"
-                            >
-                              <span className="text-zinc-800 dark:text-zinc-200">
-                                {c.memberName} ({c.month} {c.year})
-                              </span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-mono">
-                                ₹{c.amount}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Loan matches */}
-                    {searchResults.loans.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                          <ArrowRightLeft className="w-3 h-3" /> Loans Disbursed
-                        </h4>
-                        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
-                          {searchResults.loans.map((l) => (
-                            <button
-                              key={l.id}
-                              onClick={() => {
-                                handleNavigate('loans');
-                                setGlobalQuery('');
-                                setShowGlobalResults(false);
-                              }}
-                              className="w-full text-left py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 px-2 rounded-lg text-xs flex justify-between font-bold"
-                            >
-                              <span className="text-zinc-800 dark:text-zinc-200">
-                                {l.memberName} - {l.reason}
-                              </span>
-                              <span className="text-rose-600 dark:text-rose-400 font-mono">
-                                ₹{l.amount}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
-
+        <header className="flex flex-col sm:flex-row sm:items-center justify-end gap-4 border-b border-zinc-100 dark:border-zinc-800/60 pb-5 print:hidden">
           {/* System Security Label */}
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
             <Shield className="w-3.5 h-3.5" />
@@ -408,15 +261,18 @@ export default function App() {
               loans={loans}
               repayments={repayments}
               addToast={addToast}
+              forcedTab="given"
             />
           )}
 
-          {activeTab === 'income' && (
-            <IncomeExpense income={income} expense={expense} addToast={addToast} />
-          )}
-
-          {activeTab === 'expense' && (
-            <IncomeExpense income={income} expense={expense} addToast={addToast} />
+          {activeTab === 'repayments' && (
+            <Loans
+              members={members}
+              loans={loans}
+              repayments={repayments}
+              addToast={addToast}
+              forcedTab="repayments"
+            />
           )}
 
           {activeTab === 'reports' && (

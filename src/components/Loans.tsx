@@ -23,11 +23,18 @@ interface LoansProps {
   loans: Loan[];
   repayments: LoanRepayment[];
   addToast: (text: string, type: 'success' | 'error' | 'info') => void;
+  forcedTab?: 'given' | 'repayments';
 }
 
-export default function Loans({ members, loans, repayments, addToast }: LoansProps) {
+export default function Loans({ members, loans, repayments, addToast, forcedTab }: LoansProps) {
   // Navigation tabs for Loans view
-  const [activeSubTab, setActiveSubTab] = useState<'given' | 'repayments'>('given');
+  const [activeSubTab, setActiveSubTab] = useState<'given' | 'repayments'>(forcedTab || 'given');
+
+  React.useEffect(() => {
+    if (forcedTab) {
+      setActiveSubTab(forcedTab);
+    }
+  }, [forcedTab]);
 
   // Modal open states
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -197,31 +204,43 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
             <span className="p-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-xl">
               <ArrowRightLeft className="w-5 h-5" />
             </span>
-            Loans & Given Amounts Ledger
+            {forcedTab === 'given'
+              ? 'Given Amounts Ledger'
+              : forcedTab === 'repayments'
+              ? 'Repayments Log'
+              : 'Loans & Given Amounts Ledger'}
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Track capital disbursements, interest-free charity loans, and repayment histories.
+            {forcedTab === 'given'
+              ? 'Track capital disbursements and interest-free charity loans given to members.'
+              : forcedTab === 'repayments'
+              ? 'Track and log repayments of outstanding interest-free charity loans.'
+              : 'Track capital disbursements, interest-free charity loans, and repayment histories.'}
           </p>
         </div>
 
         {/* Header Action Buttons */}
         <div className="flex gap-2.5">
-          <button
-            onClick={() => setIsRepayModalOpen(true)}
-            className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
-            id="loans-add-repay-btn"
-          >
-            <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            Receive Repayment
-          </button>
-          <button
-            onClick={() => setIsLoanModalOpen(true)}
-            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            id="loans-add-loan-btn"
-          >
-            <Plus className="w-4 h-4" />
-            Give Loan
-          </button>
+          {(forcedTab === undefined || forcedTab === 'repayments') && (
+            <button
+              onClick={() => setIsRepayModalOpen(true)}
+              className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+              id="loans-add-repay-btn"
+            >
+              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Receive Repayment
+            </button>
+          )}
+          {(forcedTab === undefined || forcedTab === 'given') && (
+            <button
+              onClick={() => setIsLoanModalOpen(true)}
+              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              id="loans-add-loan-btn"
+            >
+              <Plus className="w-4 h-4" />
+              Give Loan
+            </button>
+          )}
         </div>
       </div>
 
@@ -271,30 +290,32 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       </div>
 
       {/* Subtab Selectors (Disbursed Loans vs Repayments logs) */}
-      <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1.5 rounded-2xl w-full max-w-sm">
-        <button
-          onClick={() => setActiveSubTab('given')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'given'
-              ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-          id="loans-tab-given"
-        >
-          Approved Loans
-        </button>
-        <button
-          onClick={() => setActiveSubTab('repayments')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'repayments'
-              ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-          id="loans-tab-repayments"
-        >
-          Repayments Log
-        </button>
-      </div>
+      {!forcedTab && (
+        <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1.5 rounded-2xl w-full max-w-sm">
+          <button
+            onClick={() => setActiveSubTab('given')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeSubTab === 'given'
+                ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            id="loans-tab-given"
+          >
+            Approved Loans
+          </button>
+          <button
+            onClick={() => setActiveSubTab('repayments')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeSubTab === 'repayments'
+                ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            id="loans-tab-repayments"
+          >
+            Repayments Log
+          </button>
+        </div>
+      )}
 
       {/* Ledger Lists */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
