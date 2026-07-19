@@ -19,7 +19,7 @@ interface F5WProps {
 }
 
 const YEARS = ['2025-2026', '2026-2027', '2027-2028', '2028-2029'];
-const DEFAULT_AMOUNT = 5500;
+const DEFAULT_AMOUNT = 0;
 
 export default function F5W({
   members,
@@ -73,11 +73,11 @@ export default function F5W({
     }
 
     return {
-      col1: existing ? existing.col1.toString() : DEFAULT_AMOUNT.toString(),
-      col2: existing ? existing.col2.toString() : DEFAULT_AMOUNT.toString(),
-      col3: existing ? existing.col3.toString() : DEFAULT_AMOUNT.toString(),
-      col4: existing ? existing.col4.toString() : DEFAULT_AMOUNT.toString(),
-      col5: existing ? existing.col5.toString() : DEFAULT_AMOUNT.toString(),
+      col1: existing ? existing.col1.toString() : '',
+      col2: existing ? existing.col2.toString() : '',
+      col3: existing ? existing.col3.toString() : '',
+      col4: existing ? existing.col4.toString() : '',
+      col5: existing ? existing.col5.toString() : '',
       isDirty: false
     };
   };
@@ -203,7 +203,7 @@ export default function F5W({
             F5W Ledger Matrix
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Manage F5W collection matrix with 5 customizable amount columns per member (default ₹5,500).
+            Manage F5W collection matrix with 5 customizable amount columns per member.
           </p>
         </div>
 
@@ -225,24 +225,6 @@ export default function F5W({
 
       {/* Selectors and search filter bar */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-3xl shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Financial Year:</span>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
-              id="f5w-year-selector"
-            >
-              {YEARS.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         {/* Live status tips */}
         <div className="hidden lg:flex items-center gap-2 text-xs text-zinc-400 font-medium">
           <Info className="w-4 h-4 text-emerald-500" />
@@ -337,7 +319,7 @@ export default function F5W({
                               }
                             }}
                             className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-bold font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
-                            placeholder="5500"
+                            placeholder="0"
                             id={`f5w-input-${member.memberNo}-${colKey}`}
                           />
                         </td>
@@ -353,7 +335,7 @@ export default function F5W({
                         <button
                           onClick={() => handleClearRow(member)}
                           className="p-1.5 bg-zinc-50 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 rounded-lg transition-all cursor-pointer"
-                          title="Reset to default (5500)"
+                          title="Reset to 0"
                           id={`f5w-reset-row-btn-${member.memberNo}`}
                         >
                           <Trash2 className="w-4 h-4" />

@@ -103,4 +103,5 @@ export type ActiveTab =
   | 'loans'
   | 'drawings'
   | 'reports'
+  | 'grand-total'
   | 'settings';

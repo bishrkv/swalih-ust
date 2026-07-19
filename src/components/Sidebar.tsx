@@ -14,7 +14,8 @@ import {
   Building2,
   History,
   Wallet,
-  Coins
+  Coins,
+  Calculator
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -44,6 +45,7 @@ export default function Sidebar({
     { id: 'loans' as const, label: 'Loans', icon: History },
     { id: 'drawings' as const, label: 'Drawings', icon: Wallet },
     { id: 'reports' as const, label: 'Reports', icon: FileText },
+    { id: 'grand-total' as const, label: 'Grand Total', icon: Calculator },
     { id: 'settings' as const, label: 'Backup & Settings', icon: SettingsIcon }
   ];
 

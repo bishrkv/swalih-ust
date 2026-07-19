@@ -42,6 +42,7 @@ import Loans from './components/Loans';
 import Drawings from './components/Drawings';
 import F5W from './components/F5W';
 import Reports from './components/Reports';
+import GrandTotal from './components/GrandTotal';
 import Settings from './components/Settings';
 import Notification, { ToastMessage } from './components/Notification';
 
@@ -319,6 +320,14 @@ export default function App() {
               repayments={repayments}
               income={income}
               expense={expense}
+            />
+          )}
+
+          {activeTab === 'grand-total' && (
+            <GrandTotal
+              members={members}
+              collections={collections}
+              f5wData={f5wData}
             />
           )}
 
