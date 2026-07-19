@@ -54,6 +54,26 @@ export default function Dashboard({
     return sum + (f.col1 || 0) + (f.col2 || 0) + (f.col3 || 0) + (f.col4 || 0) + (f.col5 || 0);
   }, 0);
 
+  // F5W Collection paid via Google Pay (defaults to GPay if colMode is not 'Cash')
+  const f5wGPayTotal = f5wData.reduce((sum, f) => {
+    const v1 = (f.col1Mode === 'Cash') ? 0 : (f.col1 || 0);
+    const v2 = (f.col2Mode === 'Cash') ? 0 : (f.col2 || 0);
+    const v3 = (f.col3Mode === 'Cash') ? 0 : (f.col3 || 0);
+    const v4 = (f.col4Mode === 'Cash') ? 0 : (f.col4 || 0);
+    const v5 = (f.col5Mode === 'Cash') ? 0 : (f.col5 || 0);
+    return sum + v1 + v2 + v3 + v4 + v5;
+  }, 0);
+
+  // F5W Collection paid via Cash
+  const f5wCashTotal = f5wData.reduce((sum, f) => {
+    const v1 = (f.col1Mode === 'Cash') ? (f.col1 || 0) : 0;
+    const v2 = (f.col2Mode === 'Cash') ? (f.col2 || 0) : 0;
+    const v3 = (f.col3Mode === 'Cash') ? (f.col3 || 0) : 0;
+    const v4 = (f.col4Mode === 'Cash') ? (f.col4 || 0) : 0;
+    const v5 = (f.col5Mode === 'Cash') ? (f.col5 || 0) : 0;
+    return sum + v1 + v2 + v3 + v4 + v5;
+  }, 0);
+
   // Collection (Monthly + F5W)
   const totalCollection = collections
     .filter(c => c.status === 'Paid')
@@ -87,7 +107,7 @@ export default function Dashboard({
   // Cash calculations
   const collectionsCash = collections
     .filter(c => c.status === 'Paid' && (c.paymentMode === 'Cash' || !c.paymentMode))
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + c.amount, 0) + f5wCashTotal;
   const incomeCash = income
     .filter(i => i.paymentMode === 'Cash' || !i.paymentMode)
     .reduce((sum, i) => sum + i.amount, 0);
@@ -108,7 +128,7 @@ export default function Dashboard({
   // Google Pay calculations
   const collectionsGPay = collections
     .filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay')
-    .reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
+    .reduce((sum, c) => sum + c.amount, 0) + f5wGPayTotal;
   const incomeGPay = income
     .filter(i => i.paymentMode === 'Google Pay')
     .reduce((sum, i) => sum + i.amount, 0);
@@ -198,6 +218,17 @@ export default function Dashboard({
 
   const statsCards = [
     {
+      title: 'Total Balance',
+      value: `₹${totalBalance.toLocaleString('en-IN')}`,
+      subtitle: 'Net available funds',
+      icon: Wallet,
+      color: 'from-green-600 to-emerald-700',
+      textColor: 'text-green-600 dark:text-green-400',
+      bgColor: 'bg-green-50 dark:bg-green-950/20',
+      valueColor: 'text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-500',
+      tab: 'reports' as const
+    },
+    {
       title: 'Total Collection',
       value: `₹${totalCollection.toLocaleString('en-IN')}`,
       subtitle: 'Monthly + F5W Collections',
@@ -206,36 +237,6 @@ export default function Dashboard({
       textColor: 'text-emerald-600 dark:text-emerald-400',
       bgColor: 'bg-emerald-50 dark:bg-emerald-950/20',
       tab: 'grand-total' as const
-    },
-    {
-      title: 'Given Amount',
-      value: `₹${totalGivenAmount.toLocaleString('en-IN')}`,
-      subtitle: 'Non-repayable grants',
-      icon: ArrowUpRight,
-      color: 'from-amber-500 to-amber-600',
-      textColor: 'text-amber-600 dark:text-amber-400',
-      bgColor: 'bg-amber-50 dark:bg-amber-950/20',
-      tab: 'given' as const
-    },
-    {
-      title: 'Loans Given',
-      value: `₹${totalLoans.toLocaleString('en-IN')}`,
-      subtitle: `Remaining: ₹${(totalLoans - totalRepayments).toLocaleString('en-IN')}`,
-      icon: ArrowUpRight,
-      color: 'from-rose-500 to-rose-600',
-      textColor: 'text-rose-600 dark:text-rose-400',
-      bgColor: 'bg-rose-50 dark:bg-rose-950/20',
-      tab: 'loans' as const
-    },
-    {
-      title: 'Total Balance',
-      value: `₹${totalBalance.toLocaleString('en-IN')}`,
-      subtitle: 'Net available funds',
-      icon: Wallet,
-      color: 'from-green-600 to-emerald-700',
-      textColor: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-50 dark:bg-green-950/20',
-      tab: 'reports' as const
     },
     {
       title: 'Cash in Hand',
@@ -256,6 +257,27 @@ export default function Dashboard({
       textColor: 'text-sky-600 dark:text-sky-400',
       bgColor: 'bg-sky-50 dark:bg-sky-950/20',
       tab: 'reports' as const
+    },
+    {
+      title: 'Loans Given',
+      value: `₹${totalLoans.toLocaleString('en-IN')}`,
+      subtitle: `Remaining: ₹${(totalLoans - totalRepayments).toLocaleString('en-IN')}`,
+      icon: ArrowUpRight,
+      color: 'from-rose-500 to-rose-600',
+      textColor: 'text-rose-600 dark:text-rose-400',
+      bgColor: 'bg-rose-50 dark:bg-rose-950/20',
+      valueColor: 'text-rose-600 dark:text-rose-400 group-hover:text-rose-500',
+      tab: 'loans' as const
+    },
+    {
+      title: 'Given Amount',
+      value: `₹${totalGivenAmount.toLocaleString('en-IN')}`,
+      subtitle: 'Non-repayable grants',
+      icon: ArrowUpRight,
+      color: 'from-amber-500 to-amber-600',
+      textColor: 'text-amber-600 dark:text-amber-400',
+      bgColor: 'bg-amber-50 dark:bg-amber-950/20',
+      tab: 'given' as const
     }
   ];
 
@@ -309,7 +331,7 @@ export default function Dashboard({
                 <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
                   {card.title}
                 </p>
-                <h3 className="text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                <h3 className={`text-2xl md:text-3xl font-extrabold transition-colors ${card.valueColor || 'text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'}`}>
                   {card.value}
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">

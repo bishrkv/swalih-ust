@@ -14,7 +14,7 @@ import {
   TrendingDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense } from '../types';
+import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, Drawing, F5WCollection } from '../types';
 
 interface ReportsProps {
   members: Member[];
@@ -23,6 +23,8 @@ interface ReportsProps {
   repayments: LoanRepayment[];
   income: Income[];
   expense: Expense[];
+  drawings?: Drawing[];
+  f5wData?: F5WCollection[];
 }
 
 type ReportType =
@@ -40,7 +42,9 @@ export default function Reports({
   loans,
   repayments,
   income,
-  expense
+  expense,
+  drawings = [],
+  f5wData = []
 }: ReportsProps) {
   const [selectedReport, setSelectedReport] = useState<ReportType>('balance');
 
@@ -58,7 +62,32 @@ export default function Reports({
 
   // 1. Balance Report data
   const balanceSheetData = useMemo(() => {
-    const totalColl = collections.filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.amount, 0);
+    // F5W Collection paid total
+    const f5wPaidTotal = f5wData.reduce((sum, f) => {
+      return sum + (f.col1 || 0) + (f.col2 || 0) + (f.col3 || 0) + (f.col4 || 0) + (f.col5 || 0);
+    }, 0);
+
+    // F5W Collection paid via Google Pay (defaults to GPay if colMode is not 'Cash')
+    const f5wGPayTotal = f5wData.reduce((sum, f) => {
+      const v1 = (f.col1Mode === 'Cash') ? 0 : (f.col1 || 0);
+      const v2 = (f.col2Mode === 'Cash') ? 0 : (f.col2 || 0);
+      const v3 = (f.col3Mode === 'Cash') ? 0 : (f.col3 || 0);
+      const v4 = (f.col4Mode === 'Cash') ? 0 : (f.col4 || 0);
+      const v5 = (f.col5Mode === 'Cash') ? 0 : (f.col5 || 0);
+      return sum + v1 + v2 + v3 + v4 + v5;
+    }, 0);
+
+    // F5W Collection paid via Cash
+    const f5wCashTotal = f5wData.reduce((sum, f) => {
+      const v1 = (f.col1Mode === 'Cash') ? (f.col1 || 0) : 0;
+      const v2 = (f.col2Mode === 'Cash') ? (f.col2 || 0) : 0;
+      const v3 = (f.col3Mode === 'Cash') ? (f.col3 || 0) : 0;
+      const v4 = (f.col4Mode === 'Cash') ? (f.col4 || 0) : 0;
+      const v5 = (f.col5Mode === 'Cash') ? (f.col5 || 0) : 0;
+      return sum + v1 + v2 + v3 + v4 + v5;
+    }, 0);
+
+    const totalColl = collections.filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
     const totalInc = income.reduce((sum, i) => sum + i.amount, 0);
     const totalRep = repayments.reduce((sum, r) => sum + r.amount, 0);
     const totalGiv = loans.reduce((sum, l) => sum + l.amount, 0);
@@ -66,19 +95,21 @@ export default function Reports({
     const netBal = (totalColl + totalInc + totalRep) - (totalGiv + totalExp);
 
     // Cash vs GPay
-    const collCash = collections.filter(c => c.status === 'Paid' && (c.paymentMode === 'Cash' || !c.paymentMode)).reduce((sum, c) => sum + c.amount, 0);
+    const collCash = collections.filter(c => c.status === 'Paid' && (c.paymentMode === 'Cash' || !c.paymentMode)).reduce((sum, c) => sum + c.amount, 0) + f5wCashTotal;
     const incCash = income.filter(i => i.paymentMode === 'Cash' || !i.paymentMode).reduce((sum, i) => sum + i.amount, 0);
     const repCash = repayments.filter(r => r.paymentMode === 'Cash' || !r.paymentMode).reduce((sum, r) => sum + r.amount, 0);
     const givCash = loans.filter(l => l.paymentMode === 'Cash' || !l.paymentMode).reduce((sum, l) => sum + l.amount, 0);
     const expCash = expense.filter(e => e.paymentMode === 'Cash' || !e.paymentMode).reduce((sum, e) => sum + e.amount, 0);
-    const cashInHand = (collCash + incCash + repCash) - (givCash + expCash);
+    
+    const totalWithdrawn = drawings.reduce((sum, d) => sum + d.amount, 0);
+    const cashInHand = (collCash + incCash + repCash + totalWithdrawn) - (givCash + expCash);
 
-    const collGPay = collections.filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay').reduce((sum, c) => sum + c.amount, 0);
+    const collGPay = collections.filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay').reduce((sum, c) => sum + c.amount, 0) + f5wGPayTotal;
     const incGPay = income.filter(i => i.paymentMode === 'Google Pay').reduce((sum, i) => sum + i.amount, 0);
     const repGPay = repayments.filter(r => r.paymentMode === 'Google Pay').reduce((sum, r) => sum + r.amount, 0);
     const givGPay = loans.filter(l => l.paymentMode === 'Google Pay').reduce((sum, l) => sum + l.amount, 0);
     const expGPay = expense.filter(e => e.paymentMode === 'Google Pay').reduce((sum, e) => sum + e.amount, 0);
-    const gpayBalance = (collGPay + incGPay + repGPay) - (givGPay + expGPay);
+    const gpayBalance = (collGPay + incGPay + repGPay) - (givGPay + expGPay + totalWithdrawn);
 
     return {
       totalColl,
@@ -90,7 +121,7 @@ export default function Reports({
       cashInHand,
       gpayBalance
     };
-  }, [collections, income, repayments, loans, expense]);
+  }, [collections, income, repayments, loans, expense, drawings, f5wData]);
 
   // 2. Monthly Report data
   const monthlyReportData = useMemo(() => {

@@ -321,6 +321,8 @@ export default function App() {
               repayments={repayments}
               income={income}
               expense={expense}
+              drawings={drawings}
+              f5wData={f5wData}
             />
           )}
 

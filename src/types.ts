@@ -85,11 +85,16 @@ export interface F5WCollection {
   memberNo: string;
   memberName: string;
   year: string;
-  col1: number; // default 5500
-  col2: number; // default 5500
-  col3: number; // default 5500
-  col4: number; // default 5500
-  col5: number; // default 5500
+  col1: number;
+  col2: number;
+  col3: number;
+  col4: number;
+  col5: number;
+  col1Mode?: 'Cash' | 'Google Pay';
+  col2Mode?: 'Cash' | 'Google Pay';
+  col3Mode?: 'Cash' | 'Google Pay';
+  col4Mode?: 'Cash' | 'Google Pay';
+  col5Mode?: 'Cash' | 'Google Pay';
   updatedAt: number;
 }
 

@@ -108,6 +108,8 @@ export default function F5W({
     const c4 = parseFloat(rowValues.col4) || 0;
     const c5 = parseFloat(rowValues.col5) || 0;
 
+    const existing = currentF5WMap[member.memberNo];
+
     const f5wObj: F5WCollection = {
       id: `${member.memberNo}_${selectedYear}`,
       memberNo: member.memberNo,
@@ -118,6 +120,11 @@ export default function F5W({
       col3: c3,
       col4: c4,
       col5: c5,
+      col1Mode: existing?.col1Mode || 'Google Pay',
+      col2Mode: existing?.col2Mode || 'Google Pay',
+      col3Mode: existing?.col3Mode || 'Google Pay',
+      col4Mode: existing?.col4Mode || 'Google Pay',
+      col5Mode: existing?.col5Mode || 'Google Pay',
       updatedAt: Date.now()
     };
 
@@ -132,6 +139,49 @@ export default function F5W({
     } catch (err) {
       console.error(err);
       addToast('Auto-save failed', 'error');
+    }
+  };
+
+  // Toggle payment mode for a column and save immediately
+  const handleToggleMode = async (member: Member, colKey: 'col1' | 'col2' | 'col3' | 'col4' | 'col5') => {
+    const existing = currentF5WMap[member.memberNo];
+    const rowValues = getRowValues(member.memberNo);
+
+    const c1 = parseFloat(rowValues.col1) || 0;
+    const c2 = parseFloat(rowValues.col2) || 0;
+    const c3 = parseFloat(rowValues.col3) || 0;
+    const c4 = parseFloat(rowValues.col4) || 0;
+    const c5 = parseFloat(rowValues.col5) || 0;
+
+    const currentModeKey = `${colKey}Mode` as const;
+    const currentMode = existing?.[currentModeKey] || 'Google Pay';
+    const nextMode = currentMode === 'Google Pay' ? 'Cash' : 'Google Pay';
+
+    const f5wObj: F5WCollection = {
+      id: `${member.memberNo}_${selectedYear}`,
+      memberNo: member.memberNo,
+      memberName: member.memberName,
+      year: selectedYear,
+      col1: c1,
+      col2: c2,
+      col3: c3,
+      col4: c4,
+      col5: c5,
+      col1Mode: existing?.col1Mode || 'Google Pay',
+      col2Mode: existing?.col2Mode || 'Google Pay',
+      col3Mode: existing?.col3Mode || 'Google Pay',
+      col4Mode: existing?.col4Mode || 'Google Pay',
+      col5Mode: existing?.col5Mode || 'Google Pay',
+      [currentModeKey]: nextMode,
+      updatedAt: Date.now()
+    };
+
+    try {
+      await saveF5W(f5wObj);
+      addToast(`Updated Week ${colKey.replace('col', '')} mode to ${nextMode} for ${member.memberName}`, 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to update payment mode', 'error');
     }
   };
 
@@ -306,24 +356,42 @@ export default function F5W({
                       </td>
 
                       {/* 5 Column Inputs */}
-                      {colKeys.map((colKey, index) => (
-                        <td key={colKey} className="px-4 py-4">
-                          <input
-                            type="number"
-                            value={row[colKey]}
-                            onChange={(e) => handleCellChange(member.memberNo, colKey, e.target.value)}
-                            onBlur={() => handleAutoSave(member, getRowValues(member.memberNo))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleAutoSave(member, getRowValues(member.memberNo));
-                              }
-                            }}
-                            className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-bold font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
-                            placeholder="0"
-                            id={`f5w-input-${member.memberNo}-${colKey}`}
-                          />
-                        </td>
-                      ))}
+                      {colKeys.map((colKey, index) => {
+                        const existingDoc = currentF5WMap[member.memberNo];
+                        const mode = existingDoc ? (existingDoc[`${colKey}Mode` as const] || 'Google Pay') : 'Google Pay';
+                        return (
+                          <td key={colKey} className="px-4 py-3 text-center">
+                            <div className="flex flex-col items-center gap-1.5">
+                              <input
+                                type="number"
+                                value={row[colKey]}
+                                onChange={(e) => handleCellChange(member.memberNo, colKey, e.target.value)}
+                                onBlur={() => handleAutoSave(member, getRowValues(member.memberNo))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleAutoSave(member, getRowValues(member.memberNo));
+                                  }
+                                }}
+                                className="w-full px-2 py-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-bold font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
+                                placeholder="0"
+                                id={`f5w-input-${member.memberNo}-${colKey}`}
+                              />
+                              <button
+                                onClick={() => handleToggleMode(member, colKey)}
+                                className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border cursor-pointer select-none transition-all ${
+                                  mode === 'Google Pay'
+                                    ? 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200/50 dark:border-blue-900/40'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-900/40'
+                                }`}
+                                title={`Click to toggle payment mode`}
+                                id={`f5w-mode-btn-${member.memberNo}-${colKey}`}
+                              >
+                                {mode === 'Google Pay' ? 'GPay' : 'Cash'}
+                              </button>
+                            </div>
+                          </td>
+                        );
+                      })}
 
                       {/* Member Total Paid */}
                       <td className="px-6 py-4 text-center font-bold text-zinc-900 dark:text-zinc-50 font-mono text-xs">
