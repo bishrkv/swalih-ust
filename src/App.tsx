@@ -261,6 +261,7 @@ export default function App() {
               income={income}
               expense={expense}
               drawings={drawings}
+              f5wData={f5wData}
               onNavigate={handleNavigate}
             />
           )}

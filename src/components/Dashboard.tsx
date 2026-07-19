@@ -12,7 +12,7 @@ import {
   Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, ActiveTab, Drawing } from '../types';
+import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, ActiveTab, Drawing, F5WCollection } from '../types';
 
 interface DashboardProps {
   members: Member[];
@@ -22,6 +22,7 @@ interface DashboardProps {
   income: Income[];
   expense: Expense[];
   drawings?: Drawing[];
+  f5wData?: F5WCollection[];
   onNavigate: (tab: ActiveTab, memberNo?: string) => void;
 }
 
@@ -33,6 +34,7 @@ export default function Dashboard({
   income,
   expense,
   drawings = [],
+  f5wData = [],
   onNavigate
 }: DashboardProps) {
   const [time, setTime] = useState(new Date());
@@ -47,10 +49,15 @@ export default function Dashboard({
   const totalMembers = members.length;
   const activeMembers = members.filter(m => m.status === 'Active').length;
 
-  // Collection
+  // F5W Collection paid total
+  const f5wPaidTotal = f5wData.reduce((sum, f) => {
+    return sum + (f.col1 || 0) + (f.col2 || 0) + (f.col3 || 0) + (f.col4 || 0) + (f.col5 || 0);
+  }, 0);
+
+  // Collection (Monthly + F5W)
   const totalCollection = collections
     .filter(c => c.status === 'Paid')
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
 
   // Given Amounts (Grants)
   const totalGivenAmount = loans
@@ -101,7 +108,7 @@ export default function Dashboard({
   // Google Pay calculations
   const collectionsGPay = collections
     .filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay')
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
   const incomeGPay = income
     .filter(i => i.paymentMode === 'Google Pay')
     .reduce((sum, i) => sum + i.amount, 0);
@@ -193,12 +200,12 @@ export default function Dashboard({
     {
       title: 'Total Collection',
       value: `₹${totalCollection.toLocaleString('en-IN')}`,
-      subtitle: 'Monthly Collections Paid',
+      subtitle: 'Monthly + F5W Collections',
       icon: Coins,
       color: 'from-emerald-500 to-green-600',
       textColor: 'text-emerald-600 dark:text-emerald-400',
       bgColor: 'bg-emerald-50 dark:bg-emerald-950/20',
-      tab: 'collection' as const
+      tab: 'grand-total' as const
     },
     {
       title: 'Given Amount',
