@@ -13,7 +13,8 @@ import {
   X,
   Building2,
   History,
-  Wallet
+  Wallet,
+  Coins
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -38,6 +39,7 @@ export default function Sidebar({
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'members' as const, label: 'Members', icon: Users },
     { id: 'collection' as const, label: 'Monthly Collection', icon: CheckSquare },
+    { id: 'f5w' as const, label: 'F5W Ledger', icon: Coins },
     { id: 'given' as const, label: 'Given Amount', icon: ArrowRightLeft },
     { id: 'loans' as const, label: 'Loans', icon: History },
     { id: 'drawings' as const, label: 'Drawings', icon: Wallet },

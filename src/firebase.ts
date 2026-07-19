@@ -12,7 +12,7 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
-import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, Drawing } from './types';
+import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, Drawing, F5WCollection } from './types';
 
 // Load credentials from firebase-applet-config.json style config
 const firebaseConfig = {
@@ -38,6 +38,7 @@ const incomeCol = collection(db, 'income');
 const expenseCol = collection(db, 'expense');
 const settingsCol = collection(db, 'settings');
 const drawingsCol = collection(db, 'drawings');
+const f5wCol = collection(db, 'f5w');
 
 // ---------------- MEMBERS API ----------------
 export async function saveMember(member: Member): Promise<void> {
@@ -223,6 +224,27 @@ export function subscribeDrawings(onUpdate: (drawings: Drawing[]) => void) {
   });
 }
 
+// ---------------- F5W COLLECTIONS API ----------------
+export async function saveF5W(f5w: F5WCollection): Promise<void> {
+  const docRef = doc(f5wCol, f5w.id);
+  await setDoc(docRef, f5w);
+}
+
+export async function deleteF5W(f5wId: string): Promise<void> {
+  const docRef = doc(f5wCol, f5wId);
+  await deleteDoc(docRef);
+}
+
+export function subscribeF5W(onUpdate: (f5wData: F5WCollection[]) => void) {
+  return onSnapshot(f5wCol, (snapshot) => {
+    const list: F5WCollection[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as F5WCollection);
+    });
+    onUpdate(list);
+  });
+}
+
 export async function clearAllMembersAndData(): Promise<void> {
   const collectionsToClear = [
     membersCol,
@@ -231,7 +253,8 @@ export async function clearAllMembersAndData(): Promise<void> {
     repaymentsCol,
     incomeCol,
     expenseCol,
-    drawingsCol
+    drawingsCol,
+    f5wCol
   ];
 
   for (const colRef of collectionsToClear) {

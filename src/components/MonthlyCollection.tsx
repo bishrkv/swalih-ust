@@ -83,10 +83,10 @@ export default function MonthlyCollection({
       .reduce((sum, c) => sum + c.amount, 0);
   }, [currentCollectionsMap]);
 
-  // Handle local buffer edits
-  const handleCellChange = (memberNo: string, field: string, value: any) => {
-    const existing = currentCollectionsMap[memberNo];
-    const bufferVal = editBuffer[memberNo] || {
+  // Handle local buffer edits and trigger immediate autosave for select/status actions
+  const handleCellChange = (member: Member, field: string, value: any, saveImmediately = false) => {
+    const existing = currentCollectionsMap[member.memberNo];
+    const bufferVal = editBuffer[member.memberNo] || {
       amount: existing ? existing.amount.toString() : '2500', // default collection
       status: existing ? existing.status : 'Pending',
       remarks: existing ? existing.remarks : '',
@@ -98,10 +98,14 @@ export default function MonthlyCollection({
       [field]: value
     };
 
-    setEditBuffer({
-      ...editBuffer,
-      [memberNo]: updated
-    });
+    setEditBuffer(prev => ({
+      ...prev,
+      [member.memberNo]: updated
+    }));
+
+    if (saveImmediately) {
+      autoSaveRow(member, updated);
+    }
   };
 
   // Get current row cell values (falling back to Firestore, then to defaults)
@@ -128,13 +132,11 @@ export default function MonthlyCollection({
     };
   };
 
-  // Save/Update a single row
-  const handleSaveRow = async (member: Member) => {
-    const cellVal = getCellValue(member.memberNo);
+  // Auto-save a single row to Firestore
+  const autoSaveRow = async (member: Member, cellVal: { amount: string; status: 'Paid' | 'Pending'; remarks: string; paymentMode: 'Cash' | 'Google Pay' }) => {
     const amt = parseFloat(cellVal.amount);
 
     if (isNaN(amt) || amt < 0) {
-      addToast('Please enter a valid numeric amount', 'error');
       return;
     }
 
@@ -153,15 +155,16 @@ export default function MonthlyCollection({
 
     try {
       await saveMonthlyCollection(colObj);
-      addToast(`Collection saved for ${member.memberName} (${selectedMonth} ${selectedYear})`, 'success');
-
-      // Remove from edit buffer since it's saved
-      const updatedBuffer = { ...editBuffer };
-      delete updatedBuffer[member.memberNo];
-      setEditBuffer(updatedBuffer);
+      
+      // Remove from edit buffer
+      setEditBuffer((prev) => {
+        const copy = { ...prev };
+        delete copy[member.memberNo];
+        return copy;
+      });
     } catch (err) {
       console.error(err);
-      addToast('Failed to save monthly collection', 'error');
+      addToast('Failed to auto-save collection', 'error');
     }
   };
 
@@ -178,9 +181,11 @@ export default function MonthlyCollection({
       addToast(`Collection record cleared for ${member.memberName}`, 'success');
 
       // Clear any buffer
-      const updatedBuffer = { ...editBuffer };
-      delete updatedBuffer[member.memberNo];
-      setEditBuffer(updatedBuffer);
+      setEditBuffer((prev) => {
+        const copy = { ...prev };
+        delete copy[member.memberNo];
+        return copy;
+      });
     } catch (err) {
       console.error(err);
       addToast('Failed to clear collection record', 'error');
@@ -342,7 +347,13 @@ export default function MonthlyCollection({
                         <input
                           type="number"
                           value={cell.amount}
-                          onChange={(e) => handleCellChange(member.memberNo, 'amount', e.target.value)}
+                          onChange={(e) => handleCellChange(member, 'amount', e.target.value)}
+                          onBlur={() => autoSaveRow(member, getCellValue(member.memberNo))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              autoSaveRow(member, getCellValue(member.memberNo));
+                            }
+                          }}
                           className={`w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border rounded-lg text-xs font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100 ${
                             cell.isDirty ? 'border-amber-400' : 'border-zinc-200 dark:border-zinc-700'
                           }`}
@@ -358,7 +369,7 @@ export default function MonthlyCollection({
                             <button
                               key={st}
                               type="button"
-                              onClick={() => handleCellChange(member.memberNo, 'status', st)}
+                              onClick={() => handleCellChange(member, 'status', st, true)}
                               className={`flex-1 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
                                 cell.status === st
                                   ? st === 'Paid'
@@ -378,7 +389,7 @@ export default function MonthlyCollection({
                       <td className="px-6 py-4">
                         <select
                           value={cell.paymentMode}
-                          onChange={(e) => handleCellChange(member.memberNo, 'paymentMode', e.target.value)}
+                          onChange={(e) => handleCellChange(member, 'paymentMode', e.target.value, true)}
                           className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
                           id={`collection-paymode-selector-${member.memberNo}`}
                         >
@@ -395,18 +406,6 @@ export default function MonthlyCollection({
                       {/* Action buttons */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 shrink-0">
-                          <button
-                            onClick={() => handleSaveRow(member)}
-                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                              cell.isDirty
-                                ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500'
-                                : 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30'
-                            }`}
-                            title="Save changes"
-                            id={`collection-save-row-btn-${member.memberNo}`}
-                          >
-                            <Save className="w-4 h-4" />
-                          </button>
                           <button
                             onClick={() => handleDeleteRow(member)}
                             className="p-1.5 bg-zinc-50 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 rounded-lg transition-all cursor-pointer"

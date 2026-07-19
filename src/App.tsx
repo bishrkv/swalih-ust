@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 // Types and Firestore Client
-import { ActiveTab, Member, MonthlyCollection as ColType, Loan, LoanRepayment, Income, Expense, Drawing } from './types';
+import { ActiveTab, Member, MonthlyCollection as ColType, Loan, LoanRepayment, Income, Expense, Drawing, F5WCollection } from './types';
 import {
   subscribeMembers,
   subscribeCollections,
@@ -26,7 +26,8 @@ import {
   subscribeRepayments,
   subscribeIncome,
   subscribeExpense,
-  subscribeDrawings
+  subscribeDrawings,
+  subscribeF5W
 } from './firebase';
 
 // Subcomponents
@@ -39,6 +40,7 @@ import MonthlyCollection from './components/MonthlyCollection';
 import GivenAmount from './components/GivenAmount';
 import Loans from './components/Loans';
 import Drawings from './components/Drawings';
+import F5W from './components/F5W';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import Notification, { ToastMessage } from './components/Notification';
@@ -70,6 +72,7 @@ export default function App() {
   const [income, setIncome] = useState<Income[]>([]);
   const [expense, setExpense] = useState<Expense[]>([]);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [f5wData, setF5WData] = useState<F5WCollection[]>([]);
 
   // For forcing manual sync refetches if needed
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -113,6 +116,7 @@ export default function App() {
     const unsubIncome = subscribeIncome((data) => setIncome(data));
     const unsubExpense = subscribeExpense((data) => setExpense(data));
     const unsubDrawings = subscribeDrawings((data) => setDrawings(data));
+    const unsubF5W = subscribeF5W((data) => setF5WData(data));
 
     return () => {
       unsubMembers();
@@ -122,6 +126,7 @@ export default function App() {
       unsubIncome();
       unsubExpense();
       unsubDrawings();
+      unsubF5W();
     };
   }, [isLoggedIn, refreshTrigger]);
 
@@ -276,6 +281,10 @@ export default function App() {
 
           {activeTab === 'collection' && (
             <MonthlyCollection members={members} collections={collections} addToast={addToast} />
+          )}
+
+          {activeTab === 'f5w' && (
+            <F5W members={members} f5wData={f5wData} addToast={addToast} />
           )}
 
           {activeTab === 'given' && (

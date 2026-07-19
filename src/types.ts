@@ -80,11 +80,25 @@ export interface Drawing {
   createdAt: number;
 }
 
+export interface F5WCollection {
+  id: string; // memberNo_year
+  memberNo: string;
+  memberName: string;
+  year: string;
+  col1: number; // default 5500
+  col2: number; // default 5500
+  col3: number; // default 5500
+  col4: number; // default 5500
+  col5: number; // default 5500
+  updatedAt: number;
+}
+
 export type ActiveTab =
   | 'dashboard'
   | 'members'
   | 'profile'
   | 'collection'
+  | 'f5w'
   | 'given'
   | 'loans'
   | 'drawings'
