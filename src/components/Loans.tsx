@@ -11,7 +11,10 @@ import {
   Info,
   CheckCircle,
   Clock,
-  History
+  History,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Member, Loan, LoanRepayment } from '../types';
@@ -32,6 +35,10 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
   // Modal open states
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [isRepayModalOpen, setIsRepayModalOpen] = useState(false);
+
+  // Inline editing state for loan amount
+  const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
+  const [editingAmount, setEditingAmount] = useState<string>('');
 
   // Form states - Loan
   const [memberNo, setMemberNo] = useState('');
@@ -214,6 +221,29 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
     }
   };
 
+  const handleUpdateAmount = async (loan: Loan) => {
+    const amt = parseFloat(editingAmount);
+    if (isNaN(amt) || amt <= 0) {
+      addToast('Invalid loan amount', 'error');
+      return;
+    }
+
+    const updatedLoan: Loan = {
+      ...loan,
+      amount: amt
+    };
+
+    try {
+      await saveLoan(updatedLoan);
+      addToast(`Loan amount updated to ₹${amt.toLocaleString('en-IN')} for ${loan.memberName}`, 'success');
+      setEditingLoanId(null);
+      setEditingAmount('');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to update loan amount', 'error');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -232,14 +262,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
 
         {/* Header Action Buttons */}
         <div className="flex gap-2.5">
-          <button
-            onClick={() => setIsRepayModalOpen(true)}
-            className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
-            id="loans-add-repay-btn"
-          >
-            <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            Receive Repayment
-          </button>
           <button
             onClick={() => setIsLoanModalOpen(true)}
             className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
@@ -359,7 +381,21 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                         {loan.memberName}
                       </td>
                       <td className="px-6 py-4 font-extrabold font-mono text-rose-600 dark:text-rose-400">
-                        ₹{loan.amount.toLocaleString('en-IN')}
+                        {editingLoanId === loan.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-zinc-500 dark:text-zinc-400">₹</span>
+                            <input
+                              type="number"
+                              value={editingAmount}
+                              onChange={(e) => setEditingAmount(e.target.value)}
+                              className="w-28 px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono font-bold text-sm"
+                              id={`edit-amount-input-${loan.id}`}
+                              autoFocus
+                            />
+                          </div>
+                        ) : (
+                          `₹${loan.amount.toLocaleString('en-IN')}`
+                        )}
                       </td>
                       <td className="px-6 py-4 font-medium text-zinc-800 dark:text-zinc-200">
                         {loan.reason}
@@ -371,14 +407,51 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                         {loan.notes || '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setDeleteTarget({ id: loan.id, type: 'loan' })}
-                          className="p-1.5 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                          title="Delete Record"
-                          id={`delete-loan-btn-${loan.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {editingLoanId === loan.id ? (
+                          <div className="flex justify-end items-center gap-1.5">
+                            <button
+                              onClick={() => handleUpdateAmount(loan)}
+                              className="p-1.5 text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 transition-colors cursor-pointer"
+                              title="Save"
+                              id={`save-amount-btn-${loan.id}`}
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingLoanId(null);
+                                setEditingAmount('');
+                              }}
+                              className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                              title="Cancel"
+                              id={`cancel-amount-btn-${loan.id}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingLoanId(loan.id);
+                                setEditingAmount(loan.amount.toString());
+                              }}
+                              className="p-1.5 text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                              title="Edit Amount"
+                              id={`edit-loan-btn-${loan.id}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget({ id: loan.id, type: 'loan' })}
+                              className="p-1.5 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Delete Record"
+                              id={`delete-loan-btn-${loan.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
