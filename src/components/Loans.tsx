@@ -81,6 +81,27 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
 
   const remainingBalance = totalGiven - totalRepaid;
 
+  // Members with active/outstanding loans from the actualLoans list
+  const loanBeneficiaries = useMemo(() => {
+    const uniqueMap = new Map<string, string>(); // memberNo -> memberName
+    actualLoans.forEach((l) => {
+      if (l.amount > 0) {
+        uniqueMap.set(l.memberNo, l.memberName);
+      }
+    });
+    return Array.from(uniqueMap.entries()).map(([memberNo, memberName]) => ({
+      memberNo,
+      memberName
+    }));
+  }, [actualLoans]);
+
+  const selectedMemberLoansSum = useMemo(() => {
+    if (!repayMemberNo) return 0;
+    return actualLoans
+      .filter((l) => l.memberNo === repayMemberNo)
+      .reduce((sum, l) => sum + l.amount, 0);
+  }, [repayMemberNo, actualLoans]);
+
   // Save new loan disbursement
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,31 +185,65 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
 
     // Verify member has active loan balance
     const memberLoansSum = actualLoans.filter((l) => l.memberNo === repayMemberNo).reduce((sum, l) => sum + l.amount, 0);
-    const memberRepaySum = repayments.filter((r) => r.memberNo === repayMemberNo).reduce((sum, r) => sum + r.amount, 0);
-    const memberBal = memberLoansSum - memberRepaySum;
 
-    if (amt > memberBal && memberBal > 0) {
-      addToast(`Repayment ₹${amt} exceeds member's active loan balance of ₹${memberBal}`, 'info');
+    if (amt > memberLoansSum) {
+      addToast(`Repayment ₹${amt} exceeds member's active loan balance of ₹${memberLoansSum}`, 'error');
+      return;
     }
 
-    const selectedMember = members.find((m) => m.memberNo === repayMemberNo);
-    if (!selectedMember) return;
+    // Find the loans of this member, sorted by date (oldest first)
+    const memberLoans = [...actualLoans]
+      .filter((l) => l.memberNo === repayMemberNo)
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
-    const repObj: LoanRepayment = {
-      id: `rep_${Date.now()}`,
-      loanId: 'general', // mapped directly to memberNo for ledger
-      memberNo: repayMemberNo,
-      memberName: selectedMember.memberName,
-      date: repayDate,
-      amount: amt,
-      paymentMode: repayPayMode,
-      notes: repayNotes.trim(),
-      createdAt: Date.now()
-    };
+    if (memberLoans.length === 0) {
+      addToast('No active loan found for this member', 'error');
+      return;
+    }
+
+    // Deduct the repayment amount from the member's loans (FIFO)
+    let remainingRepay = amt;
+    let appliedLoanId = 'general';
 
     try {
+      for (const loan of memberLoans) {
+        if (remainingRepay <= 0) break;
+        appliedLoanId = loan.id; // Link to the last loan we deduct from
+
+        if (loan.amount >= remainingRepay) {
+          const updatedLoan: Loan = {
+            ...loan,
+            amount: loan.amount - remainingRepay
+          };
+          await saveLoan(updatedLoan);
+          remainingRepay = 0;
+        } else {
+          remainingRepay -= loan.amount;
+          const updatedLoan: Loan = {
+            ...loan,
+            amount: 0
+          };
+          await saveLoan(updatedLoan);
+        }
+      }
+
+      const selectedMember = members.find((m) => m.memberNo === repayMemberNo);
+      const memberName = selectedMember ? selectedMember.memberName : (memberLoans[0]?.memberName || 'Custom Beneficiary');
+
+      const repObj: LoanRepayment = {
+        id: `rep_${Date.now()}`,
+        loanId: appliedLoanId, // Link to the specific loan
+        memberNo: repayMemberNo,
+        memberName: memberName,
+        date: repayDate,
+        amount: amt,
+        paymentMode: repayPayMode,
+        notes: repayNotes.trim(),
+        createdAt: Date.now()
+      };
+
       await saveRepayment(repObj);
-      addToast(`Repayment of ₹${amt.toLocaleString('en-IN')} logged for ${selectedMember.memberName}`, 'success');
+      addToast(`Repayment of ₹${amt.toLocaleString('en-IN')} logged and subtracted from ${memberName}'s loan`, 'success');
       setIsRepayModalOpen(false);
 
       // Reset
@@ -211,6 +266,21 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
         await deleteLoan(deleteTarget.id);
         addToast('Loan disbursement cleared successfully', 'success');
       } else {
+        // Retrieve the repayment first to find its loanId and amount
+        const repaymentToDelete = repayments.find(r => r.id === deleteTarget.id);
+        if (repaymentToDelete) {
+          // Add amount back to the loan if loanId is valid
+          if (repaymentToDelete.loanId && repaymentToDelete.loanId !== 'general') {
+            const associatedLoan = actualLoans.find(l => l.id === repaymentToDelete.loanId);
+            if (associatedLoan) {
+              const updatedLoan: Loan = {
+                ...associatedLoan,
+                amount: associatedLoan.amount + repaymentToDelete.amount
+              };
+              await saveLoan(updatedLoan);
+            }
+          }
+        }
         await deleteRepayment(deleteTarget.id);
         addToast('Loan repayment receipt cleared successfully', 'success');
       }
@@ -262,6 +332,14 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
 
         {/* Header Action Buttons */}
         <div className="flex gap-2.5">
+          <button
+            onClick={() => setIsRepayModalOpen(true)}
+            className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+            id="loans-add-repay-btn"
+          >
+            <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            Receive Repayment
+          </button>
           <button
             onClick={() => setIsLoanModalOpen(true)}
             className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
@@ -748,14 +826,30 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                     className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
                     id="repay-form-member-select"
                   >
-                    <option value="">-- Choose Member --</option>
-                    {activeMembers.map((m) => (
+                    <option value="">-- Choose Beneficiary --</option>
+                    {loanBeneficiaries.map((m) => (
                       <option key={m.memberNo} value={m.memberNo}>
                         [{m.memberNo}] {m.memberName}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {repayMemberNo && (
+                  <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold uppercase tracking-wider">
+                        Current Outstanding Loan
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Total unpaid loan amount for this member
+                      </p>
+                    </div>
+                    <span className="text-lg font-black font-mono text-rose-700 dark:text-rose-400">
+                      ₹{selectedMemberLoansSum.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
 
                 {/* Amount and Date */}
                 <div className="grid grid-cols-2 gap-4">

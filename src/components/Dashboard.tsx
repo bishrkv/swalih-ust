@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   Coins,
@@ -79,13 +79,25 @@ export default function Dashboard({
     .filter(c => c.status === 'Paid')
     .reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
 
+  // Reconstruct original loan amounts for accurate cash flow & balance tracking
+  const processedLoans = useMemo(() => {
+    return loans.map(l => {
+      const repaymentsForLoan = repayments.filter(r => r.loanId === l.id);
+      const totalRepaidForLoan = repaymentsForLoan.reduce((sum, r) => sum + r.amount, 0);
+      return {
+        ...l,
+        amount: l.amount + totalRepaidForLoan
+      };
+    });
+  }, [loans, repayments]);
+
   // Given Amounts (Grants)
-  const totalGivenAmount = loans
+  const totalGivenAmount = processedLoans
     .filter(l => l.type === 'given')
     .reduce((sum, l) => sum + l.amount, 0);
 
   // Loans Given
-  const totalLoans = loans
+  const totalLoans = processedLoans
     .filter(l => l.type === 'loan' || !l.type)
     .reduce((sum, l) => sum + l.amount, 0);
 
@@ -114,7 +126,7 @@ export default function Dashboard({
   const repaymentsCash = repayments
     .filter(r => r.paymentMode === 'Cash' || !r.paymentMode)
     .reduce((sum, r) => sum + r.amount, 0);
-  const loansCash = loans
+  const loansCash = processedLoans
     .filter(l => l.paymentMode === 'Cash' || !l.paymentMode)
     .reduce((sum, l) => sum + l.amount, 0);
   const expenseCash = expense
@@ -135,7 +147,7 @@ export default function Dashboard({
   const repaymentsGPay = repayments
     .filter(r => r.paymentMode === 'Google Pay')
     .reduce((sum, r) => sum + r.amount, 0);
-  const loansGPay = loans
+  const loansGPay = processedLoans
     .filter(l => l.paymentMode === 'Google Pay')
     .reduce((sum, l) => sum + l.amount, 0);
   const expenseGPay = expense
@@ -171,7 +183,7 @@ export default function Dashboard({
     });
   });
 
-  loans.slice(0, 5).forEach(l => {
+  processedLoans.slice(0, 5).forEach(l => {
     activities.push({
       type: 'Loan Given',
       title: `Loan given to Member ${l.memberNo} (${l.memberName})`,

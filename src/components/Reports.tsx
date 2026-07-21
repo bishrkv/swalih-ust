@@ -87,10 +87,20 @@ export default function Reports({
       return sum + v1 + v2 + v3 + v4 + v5;
     }, 0);
 
+    // Process loans with original amounts for accurate cash flow calculations
+    const processedLoans = loans.map(l => {
+      const repaymentsForLoan = repayments.filter(r => r.loanId === l.id);
+      const totalRepaidForLoan = repaymentsForLoan.reduce((sum, r) => sum + r.amount, 0);
+      return {
+        ...l,
+        amount: l.amount + totalRepaidForLoan
+      };
+    });
+
     const totalColl = collections.filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
     const totalInc = income.reduce((sum, i) => sum + i.amount, 0);
     const totalRep = repayments.reduce((sum, r) => sum + r.amount, 0);
-    const totalGiv = loans.reduce((sum, l) => sum + l.amount, 0);
+    const totalGiv = processedLoans.reduce((sum, l) => sum + l.amount, 0);
     const totalExp = expense.reduce((sum, e) => sum + e.amount, 0);
     const netBal = (totalColl + totalInc + totalRep) - (totalGiv + totalExp);
 
@@ -98,7 +108,7 @@ export default function Reports({
     const collCash = collections.filter(c => c.status === 'Paid' && (c.paymentMode === 'Cash' || !c.paymentMode)).reduce((sum, c) => sum + c.amount, 0) + f5wCashTotal;
     const incCash = income.filter(i => i.paymentMode === 'Cash' || !i.paymentMode).reduce((sum, i) => sum + i.amount, 0);
     const repCash = repayments.filter(r => r.paymentMode === 'Cash' || !r.paymentMode).reduce((sum, r) => sum + r.amount, 0);
-    const givCash = loans.filter(l => l.paymentMode === 'Cash' || !l.paymentMode).reduce((sum, l) => sum + l.amount, 0);
+    const givCash = processedLoans.filter(l => l.paymentMode === 'Cash' || !l.paymentMode).reduce((sum, l) => sum + l.amount, 0);
     const expCash = expense.filter(e => e.paymentMode === 'Cash' || !e.paymentMode).reduce((sum, e) => sum + e.amount, 0);
     
     const totalWithdrawn = drawings.reduce((sum, d) => sum + d.amount, 0);
@@ -107,7 +117,7 @@ export default function Reports({
     const collGPay = collections.filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay').reduce((sum, c) => sum + c.amount, 0) + f5wGPayTotal;
     const incGPay = income.filter(i => i.paymentMode === 'Google Pay').reduce((sum, i) => sum + i.amount, 0);
     const repGPay = repayments.filter(r => r.paymentMode === 'Google Pay').reduce((sum, r) => sum + r.amount, 0);
-    const givGPay = loans.filter(l => l.paymentMode === 'Google Pay').reduce((sum, l) => sum + l.amount, 0);
+    const givGPay = processedLoans.filter(l => l.paymentMode === 'Google Pay').reduce((sum, l) => sum + l.amount, 0);
     const expGPay = expense.filter(e => e.paymentMode === 'Google Pay').reduce((sum, e) => sum + e.amount, 0);
     const gpayBalance = (collGPay + incGPay + repGPay) - (givGPay + expGPay + totalWithdrawn);
 
