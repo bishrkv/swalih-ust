@@ -169,16 +169,14 @@ export default function GivenAmount({ members, loans, addToast }: GivenAmountPro
                 <th className="px-6 py-4">Date</th>
                 <th className="px-6 py-4">Member</th>
                 <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Purpose/Reason</th>
                 <th className="px-6 py-4">Payment Mode</th>
-                <th className="px-6 py-4">Notes</th>
                 <th className="px-6 py-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
               {givenLoans.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-zinc-400 font-medium">
+                  <td colSpan={5} className="text-center py-12 text-zinc-400 font-medium">
                     No given amounts found in the registry.
                   </td>
                 </tr>
@@ -197,14 +195,8 @@ export default function GivenAmount({ members, loans, addToast }: GivenAmountPro
                     <td className="px-6 py-4 font-extrabold font-mono text-amber-600 dark:text-amber-400">
                       ₹{loan.amount.toLocaleString('en-IN')}
                     </td>
-                    <td className="px-6 py-4 font-medium text-zinc-800 dark:text-zinc-200">
-                      {loan.reason}
-                    </td>
                     <td className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                       {loan.paymentMode || 'Cash'}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-zinc-400 dark:text-zinc-500 italic max-w-xs truncate">
-                      {loan.notes || '-'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button

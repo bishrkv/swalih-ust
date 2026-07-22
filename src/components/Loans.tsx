@@ -435,14 +435,13 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4">Reason</th>
                   <th className="px-6 py-4">Payment Mode</th>
-                  <th className="px-6 py-4">Notes</th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
                 {actualLoans.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-zinc-400 font-medium">
+                    <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
                       No disbursed loans found in the registry.
                     </td>
                   </tr>
@@ -480,9 +479,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                       </td>
                       <td className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                         {loan.paymentMode || 'Cash'}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-zinc-400 dark:text-zinc-500 italic max-w-xs truncate">
-                        {loan.notes || '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         {editingLoanId === loan.id ? (
@@ -547,14 +543,13 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                   <th className="px-6 py-4">Member</th>
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4">Payment Mode</th>
-                  <th className="px-6 py-4">Remarks/Notes</th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
                 {repayments.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
+                    <td colSpan={5} className="text-center py-12 text-zinc-400 font-medium">
                       No repayments logged yet.
                     </td>
                   </tr>
@@ -575,9 +570,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                       </td>
                       <td className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                         {rep.paymentMode || 'Cash'}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-zinc-400 dark:text-zinc-500 italic max-w-xs truncate">
-                        {rep.notes || '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

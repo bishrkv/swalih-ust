@@ -677,15 +677,13 @@ export default function Reports({
                         <th className="px-4 py-3">Date</th>
                         <th className="px-4 py-3">Member Name</th>
                         <th className="px-4 py-3">Amount</th>
-                        <th className="px-4 py-3">Purpose / Reason</th>
                         <th className="px-4 py-3">Payment Mode</th>
-                        <th className="px-4 py-3">Notes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                       {loans.filter((l) => l.type === 'given').length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-6 text-zinc-400 font-medium">No given amounts logged.</td>
+                          <td colSpan={4} className="text-center py-6 text-zinc-400 font-medium">No given amounts logged.</td>
                         </tr>
                       ) : (
                         loans.filter((l) => l.type === 'given').map((l) => (
@@ -693,9 +691,7 @@ export default function Reports({
                             <td className="px-4 py-2.5 font-mono">{l.date}</td>
                             <td className="px-4 py-2.5 font-bold">{l.memberName}</td>
                             <td className="px-4 py-2.5 font-bold font-mono text-amber-600">₹{l.amount.toLocaleString('en-IN')}</td>
-                            <td className="px-4 py-2.5 text-zinc-800 dark:text-zinc-200">{l.reason}</td>
                             <td className="px-4 py-2.5 text-zinc-500">{l.paymentMode || 'Cash'}</td>
-                            <td className="px-4 py-2.5 text-zinc-500 italic">{l.notes || '-'}</td>
                           </tr>
                         ))
                       )}

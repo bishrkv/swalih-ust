@@ -293,7 +293,7 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
           </div>
           <input
             type="text"
-            placeholder="Search by name, phone, address, member no..."
+            placeholder="Search by name, member no..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -348,8 +348,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
                     <ArrowUpDown className="w-3.5 h-3.5" />
                   </div>
                 </th>
-                <th className="px-6 py-4">Phone Number</th>
-                <th className="px-6 py-4">Address</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
@@ -357,7 +355,7 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
               {filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
+                  <td colSpan={4} className="text-center py-12 text-zinc-400 font-medium">
                     No members found matching selected criteria.
                   </td>
                 </tr>
@@ -382,30 +380,6 @@ export default function Members({ members, onNavigate, addToast }: MembersProps)
                         <User className="w-4 h-4 shrink-0" />
                         {member.memberName}
                       </button>
-                    </td>
-
-                    {/* Phone */}
-                    <td className="px-6 py-4 font-mono text-zinc-500 dark:text-zinc-400">
-                      {member.phone ? (
-                        <span className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          {member.phone}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-
-                    {/* Address */}
-                    <td className="px-6 py-4 text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
-                      {member.address ? (
-                        <span className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          {member.address}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
                     </td>
 
                     {/* Status */}

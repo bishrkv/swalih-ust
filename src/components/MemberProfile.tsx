@@ -358,7 +358,6 @@ export default function MemberProfile({
                             <th className="py-2">Amount</th>
                             <th className="py-2">Reason</th>
                             <th className="py-2">Payment Mode</th>
-                            <th className="py-2">Notes</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -375,9 +374,6 @@ export default function MemberProfile({
                               </td>
                               <td className="py-2.5 text-zinc-500 dark:text-zinc-400">
                                 {loan.paymentMode || 'Cash'}
-                              </td>
-                              <td className="py-2.5 text-zinc-400 dark:text-zinc-500 italic max-w-xs truncate">
-                                {loan.notes || '-'}
                               </td>
                             </tr>
                           ))}
@@ -400,7 +396,6 @@ export default function MemberProfile({
                             <th className="py-2">Date</th>
                             <th className="py-2">Amount</th>
                             <th className="py-2">Payment Mode</th>
-                            <th className="py-2">Notes</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -414,9 +409,6 @@ export default function MemberProfile({
                               </td>
                               <td className="py-2.5 text-zinc-500 dark:text-zinc-400">
                                 {rep.paymentMode || 'Cash'}
-                              </td>
-                              <td className="py-2.5 text-zinc-400 dark:text-zinc-500 italic max-w-xs truncate">
-                                {rep.notes || '-'}
                               </td>
                             </tr>
                           ))}
