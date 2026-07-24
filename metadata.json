@@ -1,6 +1,8 @@
 {
   "name": "USBA Marriage Fund",
   "description": "A premium and responsive full-stack Marriage Fund Management System with real-time Firestore ledger sync, audit logs, and accounting reports.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "camera"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
