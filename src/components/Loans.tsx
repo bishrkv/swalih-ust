@@ -71,7 +71,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
   }, [loans]);
 
   // Aggregate sums
-  const totalGiven = useMemo(() => {
+  const totalRemainingBalance = useMemo(() => {
     return actualLoans.reduce((sum, l) => sum + l.amount, 0);
   }, [actualLoans]);
 
@@ -79,7 +79,28 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
     return repayments.reduce((sum, r) => sum + r.amount, 0);
   }, [repayments]);
 
-  const remainingBalance = totalGiven - totalRepaid;
+  const totalGiven = totalRemainingBalance + totalRepaid;
+  const remainingBalance = totalRemainingBalance;
+
+  // Active loans (amount > 0) sorted in descending order (newest first)
+  const displayLoans = useMemo(() => {
+    return actualLoans
+      .filter((l) => l.amount > 0)
+      .sort((a, b) => {
+        const timeA = a.createdAt || (a.date ? new Date(a.date).getTime() : 0);
+        const timeB = b.createdAt || (b.date ? new Date(b.date).getTime() : 0);
+        return timeB - timeA;
+      });
+  }, [actualLoans]);
+
+  // Repayments sorted in descending order (newest first)
+  const sortedRepayments = useMemo(() => {
+    return [...repayments].sort((a, b) => {
+      const timeA = a.createdAt || (a.date ? new Date(a.date).getTime() : 0);
+      const timeB = b.createdAt || (b.date ? new Date(b.date).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [repayments]);
 
   // Members with active/outstanding loans from the actualLoans list
   const loanBeneficiaries = useMemo(() => {
@@ -439,14 +460,14 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
-                {actualLoans.length === 0 ? (
+                {displayLoans.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
-                      No disbursed loans found in the registry.
+                      No active loans found in the registry.
                     </td>
                   </tr>
                 ) : (
-                  actualLoans.map((loan) => (
+                  displayLoans.map((loan) => (
                     <tr key={loan.id} className="hover:bg-zinc-50/40 dark:hover:bg-zinc-800/10 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-zinc-500 dark:text-zinc-400">
                         {loan.date}
@@ -547,14 +568,14 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
-                {repayments.length === 0 ? (
+                {sortedRepayments.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-12 text-zinc-400 font-medium">
                       No repayments logged yet.
                     </td>
                   </tr>
                 ) : (
-                  repayments.map((rep) => (
+                  sortedRepayments.map((rep) => (
                     <tr key={rep.id} className="hover:bg-zinc-50/40 dark:hover:bg-zinc-800/10 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-zinc-500 dark:text-zinc-400">
                         {rep.date}

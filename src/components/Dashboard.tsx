@@ -271,9 +271,9 @@ export default function Dashboard({
       tab: 'reports' as const
     },
     {
-      title: 'Loans Given',
-      value: `₹${totalLoans.toLocaleString('en-IN')}`,
-      subtitle: `Remaining: ₹${(totalLoans - totalRepayments).toLocaleString('en-IN')}`,
+      title: 'Loans Remaining',
+      value: `₹${Math.max(0, totalLoans - totalRepayments).toLocaleString('en-IN')}`,
+      subtitle: `Total Disbursed: ₹${totalLoans.toLocaleString('en-IN')}`,
       icon: ArrowUpRight,
       color: 'from-rose-500 to-rose-600',
       textColor: 'text-rose-600 dark:text-rose-400',
