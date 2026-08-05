@@ -48,15 +48,29 @@ export default function Reports({
 }: ReportsProps) {
   const [selectedReport, setSelectedReport] = useState<ReportType>('balance');
 
-  // Filters for monthly/yearly reports
-  const [filterYear, setFilterYear] = useState('2026-2027');
-  const [filterMonth, setFilterMonth] = useState('July');
-
   const YEARS = ['2025-2026', '2026-2027', '2027-2028', '2028-2029'];
   const MONTHS = [
     'May', 'June', 'July', 'August', 'September', 'October',
     'November', 'December', 'January', 'February', 'March', 'April'
   ];
+
+  const getCurrentMonthName = (): string => {
+    const date = new Date();
+    const monthName = date.toLocaleString('en-US', { month: 'long' });
+    return MONTHS.includes(monthName) ? monthName : 'August';
+  };
+
+  const getCurrentFinancialYear = (): string => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0 = Jan, 4 = May
+    const finYear = month >= 4 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+    return YEARS.includes(finYear) ? finYear : '2026-2027';
+  };
+
+  // Filters for monthly/yearly reports
+  const [filterYear, setFilterYear] = useState<string>(() => getCurrentFinancialYear());
+  const [filterMonth, setFilterMonth] = useState<string>(() => getCurrentMonthName());
 
   // ---------------- DATASHEET COMPILING & AGGREGATIONS ----------------
 

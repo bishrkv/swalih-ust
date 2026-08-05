@@ -11,7 +11,9 @@ import {
   Search,
   Filter,
   CheckSquare,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Member, MonthlyCollection as ColType } from '../types';
@@ -29,14 +31,28 @@ const MONTHS = [
   'November', 'December', 'January', 'February', 'March', 'April'
 ];
 
+const getCurrentMonthName = (): string => {
+  const date = new Date();
+  const monthName = date.toLocaleString('en-US', { month: 'long' });
+  return MONTHS.includes(monthName) ? monthName : 'August';
+};
+
+const getCurrentFinancialYear = (): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0 = Jan, 4 = May
+  const finYear = month >= 4 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+  return YEARS.includes(finYear) ? finYear : '2026-2027';
+};
+
 export default function MonthlyCollection({
   members,
   collections,
   addToast
 }: MonthlyCollectionProps) {
-  // Selection states
-  const [selectedYear, setSelectedYear] = useState('2026-2027');
-  const [selectedMonth, setSelectedMonth] = useState('July');
+  // Selection states automatically defaulted to current month and financial year
+  const [selectedYear, setSelectedYear] = useState<string>(() => getCurrentFinancialYear());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentMonthName());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Local editing buffer for each member: { [memberNo]: { amount, status, remarks, paymentMode } }
@@ -192,6 +208,33 @@ export default function MonthlyCollection({
     }
   };
 
+  // Month navigation handlers (auto wraps year when moving past April or May)
+  const handlePrevMonth = () => {
+    const currentIndex = MONTHS.indexOf(selectedMonth);
+    if (currentIndex > 0) {
+      setSelectedMonth(MONTHS[currentIndex - 1]);
+    } else {
+      const yearIndex = YEARS.indexOf(selectedYear);
+      if (yearIndex > 0) {
+        setSelectedYear(YEARS[yearIndex - 1]);
+        setSelectedMonth(MONTHS[MONTHS.length - 1]);
+      }
+    }
+  };
+
+  const handleNextMonth = () => {
+    const currentIndex = MONTHS.indexOf(selectedMonth);
+    if (currentIndex < MONTHS.length - 1) {
+      setSelectedMonth(MONTHS[currentIndex + 1]);
+    } else {
+      const yearIndex = YEARS.indexOf(selectedYear);
+      if (yearIndex < YEARS.length - 1) {
+        setSelectedYear(YEARS[yearIndex + 1]);
+        setSelectedMonth(MONTHS[0]);
+      }
+    }
+  };
+
   // Filter members list based on active state and search
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
@@ -262,18 +305,40 @@ export default function MonthlyCollection({
           {/* Select Month */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Month:</span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
-              id="collection-month-selector"
-            >
-              {MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-0.5 shadow-xs">
+              <button
+                onClick={handlePrevMonth}
+                type="button"
+                className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
+                title="Previous Month"
+                id="prev-month-btn"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-2 py-1 bg-transparent text-zinc-800 dark:text-zinc-100 focus:outline-none text-xs font-bold cursor-pointer"
+                id="collection-month-selector"
+              >
+                {MONTHS.map((m) => (
+                  <option key={m} value={m} className="bg-white dark:bg-zinc-800">
+                    {m}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleNextMonth}
+                type="button"
+                className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
+                title="Next Month"
+                id="next-month-btn"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
 
