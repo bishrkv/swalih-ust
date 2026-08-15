@@ -33,6 +33,7 @@ import {
 // Subcomponents
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
+import MobileBottomNav from './components/MobileBottomNav';
 import Dashboard from './components/Dashboard';
 import Members from './components/Members';
 import MemberProfile from './components/MemberProfile';
@@ -239,12 +240,12 @@ export default function App() {
       />
 
       {/* Main Container Workspace */}
-      <main className="lg:col-span-9 min-h-screen flex flex-col p-6 max-w-7xl w-full mx-auto space-y-6">
+      <main className="lg:col-span-9 min-h-screen flex flex-col p-3.5 sm:p-6 pb-24 lg:pb-6 max-w-7xl w-full mx-auto space-y-4 sm:space-y-6">
         
-        {/* Global Search Top Bar Header */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-end gap-4 border-b border-zinc-100 dark:border-zinc-800/60 pb-5 print:hidden">
+        {/* Top Bar Header (Desktop RLS status) */}
+        <header className="hidden sm:flex items-center justify-end gap-4 border-b border-zinc-100 dark:border-zinc-800/60 pb-4 print:hidden">
           {/* System Security Label */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
+          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
             <Shield className="w-3.5 h-3.5" />
             Row Level Security (RLS) Active
           </div>
@@ -348,6 +349,15 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar & Quick Sheet */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        darkMode={darkMode}
+        toggleDarkMode={() => setDarkMode(!darkMode)}
+      />
 
       {/* Global Real-time Toaster notifications */}
       <Notification toasts={toasts} onClose={removeToast} />

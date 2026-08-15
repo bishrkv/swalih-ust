@@ -57,28 +57,37 @@ export default function Sidebar({
   return (
     <>
       {/* Mobile Header Bar */}
-      <div className="lg:hidden bg-emerald-800 text-white px-5 py-4 flex items-center justify-between border-b border-emerald-700 shadow-sm print:hidden">
-        <div className="flex items-center gap-2.5">
-          <Building2 className="w-6 h-6 shrink-0 text-white" />
-          <span className="font-extrabold tracking-wide text-sm font-sans uppercase">USBA Fund</span>
+      <header className="lg:hidden sticky top-0 z-30 bg-emerald-800 dark:bg-emerald-950 text-white px-4 py-3 flex items-center justify-between border-b border-emerald-700/80 dark:border-emerald-900 shadow-sm print:hidden">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-white/10 rounded-lg border border-white/20 shrink-0">
+            <Building2 className="w-4.5 h-4.5 text-emerald-100" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-extrabold tracking-wide text-xs font-sans uppercase truncate">USBA Fund</h1>
+            <p className="text-[10px] text-emerald-200 dark:text-emerald-400 font-mono capitalize leading-none truncate">
+              {activeTab.replace('-', ' ')}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={toggleDarkMode}
-            className="p-1.5 hover:bg-emerald-700 rounded-lg text-emerald-100 transition-colors"
+            className="p-2 hover:bg-emerald-700/70 dark:hover:bg-emerald-900 rounded-xl text-emerald-100 transition-colors cursor-pointer"
             id="mobile-darkmode-toggle"
+            aria-label="Toggle theme"
           >
-            {darkMode ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+            {darkMode ? <Sun className="w-4.5 h-4.5 text-amber-300" /> : <Moon className="w-4.5 h-4.5" />}
           </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 hover:bg-emerald-700 rounded-lg text-white transition-colors"
+            className="p-2 hover:bg-emerald-700/70 dark:hover:bg-emerald-900 rounded-xl text-white transition-colors cursor-pointer"
             id="mobile-menu-toggle"
+            aria-label="Toggle navigation drawer"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Backdrop for Mobile Drawer */}
       {mobileOpen && (

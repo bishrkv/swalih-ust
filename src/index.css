@@ -6,6 +6,29 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+/* Mobile Web Optimization */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  overscroll-behavior-y: none;
+}
+
+/* Safe area padding utilities for mobile notches & home indicator */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Smooth mobile touch scrolling */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
 /* Print Custom Styles for High Fidelity Paper Reports */
 @media print {
   body {
@@ -41,7 +64,7 @@
   }
 }
 
-/* Hide HTML5 number input spinner controls (price adding and minasing buttons) */
+/* Hide HTML5 number input spinner controls */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
