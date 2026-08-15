@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -9,8 +9,6 @@ import {
   LogOut,
   Moon,
   Sun,
-  Menu,
-  X,
   Building2,
   History,
   Wallet,
@@ -34,8 +32,6 @@ export default function Sidebar({
   darkMode,
   toggleDarkMode
 }: SidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'members' as const, label: 'Members', icon: Users },
@@ -48,11 +44,6 @@ export default function Sidebar({
     { id: 'grand-total' as const, label: 'Grand Total', icon: Calculator },
     { id: 'settings' as const, label: 'Backup & Settings', icon: SettingsIcon }
   ];
-
-  const handleNav = (tab: ActiveTab) => {
-    onNavigate(tab);
-    setMobileOpen(false);
-  };
 
   return (
     <>
@@ -78,30 +69,12 @@ export default function Sidebar({
           >
             {darkMode ? <Sun className="w-4.5 h-4.5 text-amber-300" /> : <Moon className="w-4.5 h-4.5" />}
           </button>
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 hover:bg-emerald-700/70 dark:hover:bg-emerald-900 rounded-xl text-white transition-colors cursor-pointer"
-            id="mobile-menu-toggle"
-            aria-label="Toggle navigation drawer"
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
         </div>
       </header>
 
-      {/* Backdrop for Mobile Drawer */}
-      {mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          className="lg:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-xs print:hidden"
-        />
-      )}
-
-      {/* Sidebar Navigation Panel */}
+      {/* Desktop Sidebar Navigation Panel */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-zinc-900 dark:bg-zinc-950 text-zinc-100 flex flex-col justify-between z-50 transform lg:transform-none transition-transform duration-300 border-r border-zinc-800 lg:col-span-3 shrink-0 print:hidden ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className="hidden lg:flex sticky top-0 left-0 h-screen w-64 bg-zinc-900 dark:bg-zinc-950 text-zinc-100 flex-col justify-between z-50 border-r border-zinc-800 lg:col-span-3 shrink-0 print:hidden"
       >
         <div className="flex flex-col">
           {/* Main Logo & Islamic Accent Branding */}
@@ -125,7 +98,7 @@ export default function Sidebar({
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleNav(item.id)}
+                  onClick={() => onNavigate(item.id)}
                   className={`w-full flex items-center gap-3.5 px-4 py-3 text-xs font-bold rounded-xl transition-all text-left cursor-pointer ${
                     isActive
                       ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-900/30 font-extrabold'

@@ -43,12 +43,12 @@ export default function MobileBottomNav({
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'collection' as const, label: 'Collection', icon: CheckSquare },
     { id: 'f5w' as const, label: 'F5W', icon: Coins },
-    { id: 'members' as const, label: 'Members', icon: Users }
+    { id: 'loans' as const, label: 'Loans', icon: History }
   ];
 
   // Secondary items in the "More" slide-up drawer
   const moreItems = [
-    { id: 'loans' as const, label: 'Loans Ledger', desc: 'Disbursements & active repayments', icon: History, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' },
+    { id: 'members' as const, label: 'Members Directory', desc: 'Active members & profile logs', icon: Users, color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/40' },
     { id: 'given' as const, label: 'Given Amount', desc: 'Grants & one-time assistance', icon: ArrowRightLeft, color: 'text-rose-500 bg-rose-50 dark:bg-rose-950/40' },
     { id: 'drawings' as const, label: 'Drawings', desc: 'Partner distributions & drawdowns', icon: Wallet, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/40' },
     { id: 'reports' as const, label: 'Reports & Export', desc: 'Financial audit sheets & balance', icon: FileText, color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/40' },
@@ -61,7 +61,7 @@ export default function MobileBottomNav({
     setMoreOpen(false);
   };
 
-  const isMoreActive = moreItems.some((item) => item.id === activeTab);
+  const isMoreActive = moreItems.some((item) => item.id === activeTab) || activeTab === 'profile';
 
   return (
     <>
@@ -73,7 +73,7 @@ export default function MobileBottomNav({
         <div className="grid grid-cols-5 items-center justify-around max-w-md mx-auto">
           {primaryTabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.id || (tab.id === 'members' && activeTab === 'profile');
+            const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
@@ -174,7 +174,7 @@ export default function MobileBottomNav({
               <div className="p-4 space-y-2 overflow-y-auto max-h-[50vh]">
                 {moreItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = activeTab === item.id;
+                  const isActive = activeTab === item.id || (item.id === 'members' && activeTab === 'profile');
                   return (
                     <button
                       key={item.id}

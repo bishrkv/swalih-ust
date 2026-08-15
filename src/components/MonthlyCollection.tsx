@@ -1,21 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Calendar,
-  Save,
-  Trash2,
   Coins,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  TrendingUp,
   Search,
-  Filter,
+  Trash2,
   CheckSquare,
-  AlertCircle,
-  ChevronLeft,
-  ChevronRight
+  LayoutGrid,
+  Columns,
+  Sparkles
 } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Member, MonthlyCollection as ColType } from '../types';
 import { saveMonthlyCollection, deleteMonthlyCollection } from '../firebase';
 
@@ -30,12 +22,10 @@ const MONTHS = [
   'May', 'June', 'July', 'August', 'September', 'October',
   'November', 'December', 'January', 'February', 'March', 'April'
 ];
-
-const getCurrentMonthName = (): string => {
-  const date = new Date();
-  const monthName = date.toLocaleString('en-US', { month: 'long' });
-  return MONTHS.includes(monthName) ? monthName : 'August';
-};
+const MONTH_SHORT = [
+  'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct',
+  'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'
+];
 
 const getCurrentFinancialYear = (): string => {
   const date = new Date();
@@ -45,253 +35,312 @@ const getCurrentFinancialYear = (): string => {
   return YEARS.includes(finYear) ? finYear : '2026-2027';
 };
 
+const getCurrentMonthName = (): string => {
+  const date = new Date();
+  const monthName = date.toLocaleString('en-US', { month: 'long' });
+  return MONTHS.includes(monthName) ? monthName : 'August';
+};
+
 export default function MonthlyCollection({
   members,
   collections,
   addToast
 }: MonthlyCollectionProps) {
-  // Selection states automatically defaulted to current month and financial year
   const [selectedYear, setSelectedYear] = useState<string>(() => getCurrentFinancialYear());
+  const [viewMode, setViewMode] = useState<'matrix' | 'single'>('matrix');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentMonthName());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Local editing buffer for each member: { [memberNo]: { amount, status, remarks, paymentMode } }
-  const [editBuffer, setEditBuffer] = useState<{
-    [memberNo: string]: {
-      amount: string;
-      status: 'Paid' | 'Pending';
-      remarks: string;
-      paymentMode: 'Cash' | 'Google Pay';
-    };
-  }>({});
+  // Local typing edit buffer: { [`${memberNo}_${month}`]: string }
+  const [editBuffer, setEditBuffer] = useState<{ [key: string]: string }>({});
 
-  // Reset editing buffer when changing year or month
+  // Reset editing buffer when changing year
   React.useEffect(() => {
     setEditBuffer({});
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear]);
 
-  // Aggregate collections specifically for the current selected year and month
-  const currentCollectionsMap = useMemo(() => {
-    const map: { [memberNo: string]: ColType } = {};
+  // Aggregate collections for selected year: { [`${memberNo}_${month}`]: ColType }
+  const yearCollectionsMap = useMemo(() => {
+    const map: { [key: string]: ColType } = {};
     collections.forEach((c) => {
-      if (c.year === selectedYear && c.month === selectedMonth) {
-        map[c.memberNo] = c;
+      if (c.year === selectedYear) {
+        map[`${c.memberNo}_${c.month}`] = c;
       }
     });
     return map;
-  }, [collections, selectedYear, selectedMonth]);
+  }, [collections, selectedYear]);
 
-  // Calculate each member's overall grand total paid (all-time)
-  const memberGrandTotals = useMemo(() => {
-    const map: { [memberNo: string]: number } = {};
-    collections.forEach((c) => {
-      if (c.status === 'Paid') {
-        map[c.memberNo] = (map[c.memberNo] || 0) + c.amount;
-      }
-    });
-    return map;
-  }, [collections]);
+  // Get cell value (from local buffer if typing, else from Firestore, else empty)
+  const getCellValue = (memberNo: string, month: string): string => {
+    const key = `${memberNo}_${month}`;
+    if (editBuffer[key] !== undefined) {
+      return editBuffer[key];
+    }
+    const doc = yearCollectionsMap[key];
+    if (doc && doc.status === 'Paid' && doc.amount > 0) {
+      return doc.amount.toString();
+    }
+    return '';
+  };
 
-  // Calculate current monthly grand total (amount sum of paid status in selected year/month)
-  const monthlyGrandTotal = useMemo(() => {
-    return (Object.values(currentCollectionsMap) as ColType[])
-      .filter((c) => c.status === 'Paid')
-      .reduce((sum, c) => sum + c.amount, 0);
-  }, [currentCollectionsMap]);
+  // Get cell payment mode
+  const getCellMode = (memberNo: string, month: string): 'Google Pay' | 'Cash' => {
+    const key = `${memberNo}_${month}`;
+    const doc = yearCollectionsMap[key];
+    return doc?.paymentMode || 'Google Pay';
+  };
 
-  // Handle local buffer edits and trigger immediate autosave for select/status actions
-  const handleCellChange = (member: Member, field: string, value: any, saveImmediately = false) => {
-    const existing = currentCollectionsMap[member.memberNo];
-    const bufferVal = editBuffer[member.memberNo] || {
-      amount: existing ? existing.amount.toString() : '2500', // default collection
-      status: existing ? existing.status : 'Pending',
-      remarks: existing ? existing.remarks : '',
-      paymentMode: existing ? existing.paymentMode : 'Google Pay'
-    };
-
-    const updated = {
-      ...bufferVal,
-      [field]: value
-    };
-
-    setEditBuffer(prev => ({
+  // Handle direct typing in any cell
+  const handleCellType = (memberNo: string, month: string, value: string) => {
+    const key = `${memberNo}_${month}`;
+    setEditBuffer((prev) => ({
       ...prev,
-      [member.memberNo]: updated
+      [key]: value
     }));
-
-    if (saveImmediately) {
-      autoSaveRow(member, updated);
-    }
   };
 
-  // Get current row cell values (falling back to Firestore, then to defaults)
-  const getCellValue = (memberNo: string) => {
-    const existing = currentCollectionsMap[memberNo];
-    const buffer = editBuffer[memberNo];
+  // Auto-save cell when user finishes typing (onBlur or onEnter)
+  const handleSaveCell = async (member: Member, month: string) => {
+    const key = `${member.memberNo}_${month}`;
+    const rawVal = editBuffer[key];
 
-    if (buffer) {
-      return {
-        amount: buffer.amount,
-        status: buffer.status,
-        remarks: buffer.remarks,
-        paymentMode: buffer.paymentMode,
-        isDirty: true
-      };
+    // If never modified, skip
+    if (rawVal === undefined) return;
+
+    const trimmed = rawVal.trim();
+    const existingDoc = yearCollectionsMap[key];
+
+    if (trimmed === '' || trimmed === '0') {
+      // If cleared or set to 0 and existing doc exists, delete record
+      if (existingDoc) {
+        try {
+          await deleteMonthlyCollection(existingDoc.id);
+          setEditBuffer((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+        } catch (err) {
+          console.error(err);
+          addToast('Failed to clear entry', 'error');
+        }
+      } else {
+        setEditBuffer((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      }
+      return;
     }
 
-    return {
-      amount: existing ? existing.amount.toString() : '2500', // standard default amount
-      status: existing ? existing.status : 'Pending',
-      remarks: existing ? existing.remarks : '',
-      paymentMode: existing ? (existing.paymentMode || 'Google Pay') : 'Google Pay',
-      isDirty: false
-    };
-  };
-
-  // Auto-save a single row to Firestore
-  const autoSaveRow = async (member: Member, cellVal: { amount: string; status: 'Paid' | 'Pending'; remarks: string; paymentMode: 'Cash' | 'Google Pay' }) => {
-    const amt = parseFloat(cellVal.amount);
-
+    const amt = parseFloat(trimmed);
     if (isNaN(amt) || amt < 0) {
       return;
     }
 
     const colObj: ColType = {
-      id: `${member.memberNo}_${selectedYear}_${selectedMonth}`,
+      id: `${member.memberNo}_${selectedYear}_${month}`,
       memberNo: member.memberNo,
       memberName: member.memberName,
       year: selectedYear,
-      month: selectedMonth,
+      month: month,
       amount: amt,
-      status: cellVal.status,
-      remarks: cellVal.remarks,
-      paymentMode: cellVal.paymentMode,
+      status: 'Paid',
+      remarks: existingDoc?.remarks || '',
+      paymentMode: existingDoc?.paymentMode || 'Google Pay',
       updatedAt: Date.now()
     };
 
     try {
       await saveMonthlyCollection(colObj);
-      
-      // Remove from edit buffer
       setEditBuffer((prev) => {
-        const copy = { ...prev };
-        delete copy[member.memberNo];
-        return copy;
+        const next = { ...prev };
+        delete next[key];
+        return next;
       });
     } catch (err) {
       console.error(err);
-      addToast('Failed to auto-save collection', 'error');
+      addToast('Auto-save failed', 'error');
     }
   };
 
-  // Delete a collection record (reset back to Pending default)
-  const handleDeleteRow = async (member: Member) => {
-    const existing = currentCollectionsMap[member.memberNo];
-    if (!existing) {
-      addToast('No saved collection record exists for this member in this period.', 'info');
+  // Quick 1-tap mode toggle (Cash <-> Google Pay)
+  const handleToggleMode = async (member: Member, month: string) => {
+    const key = `${member.memberNo}_${month}`;
+    const existingDoc = yearCollectionsMap[key];
+    const rawVal = getCellValue(member.memberNo, month);
+    const amt = parseFloat(rawVal) || 0;
+
+    const currentMode = existingDoc?.paymentMode || 'Google Pay';
+    const nextMode: 'Cash' | 'Google Pay' = currentMode === 'Google Pay' ? 'Cash' : 'Google Pay';
+
+    const colObj: ColType = {
+      id: `${member.memberNo}_${selectedYear}_${month}`,
+      memberNo: member.memberNo,
+      memberName: member.memberName,
+      year: selectedYear,
+      month: month,
+      amount: amt,
+      status: amt > 0 ? 'Paid' : 'Pending',
+      remarks: existingDoc?.remarks || '',
+      paymentMode: nextMode,
+      updatedAt: Date.now()
+    };
+
+    try {
+      await saveMonthlyCollection(colObj);
+      addToast(`${month} mode: ${nextMode} (${member.memberName})`, 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to update mode', 'error');
+    }
+  };
+
+  // Clear entire row for a member in this financial year
+  const handleClearMemberYear = async (member: Member) => {
+    const memberDocs = MONTHS.map((m) => yearCollectionsMap[`${member.memberNo}_${m}`]).filter(Boolean);
+
+    if (memberDocs.length === 0) {
+      addToast('No entries found for this member.', 'info');
       return;
     }
 
     try {
-      await deleteMonthlyCollection(existing.id);
-      addToast(`Collection record cleared for ${member.memberName}`, 'success');
-
-      // Clear any buffer
+      for (const d of memberDocs) {
+        await deleteMonthlyCollection(d.id);
+      }
       setEditBuffer((prev) => {
-        const copy = { ...prev };
-        delete copy[member.memberNo];
-        return copy;
+        const next = { ...prev };
+        MONTHS.forEach((m) => {
+          delete next[`${member.memberNo}_${m}`];
+        });
+        return next;
       });
+      addToast(`Cleared ${selectedYear} records for ${member.memberName}`, 'success');
     } catch (err) {
       console.error(err);
-      addToast('Failed to clear collection record', 'error');
+      addToast('Failed to clear records', 'error');
     }
   };
 
-  // Month navigation handlers (auto wraps year when moving past April or May)
-  const handlePrevMonth = () => {
-    const currentIndex = MONTHS.indexOf(selectedMonth);
-    if (currentIndex > 0) {
-      setSelectedMonth(MONTHS[currentIndex - 1]);
-    } else {
-      const yearIndex = YEARS.indexOf(selectedYear);
-      if (yearIndex > 0) {
-        setSelectedYear(YEARS[yearIndex - 1]);
-        setSelectedMonth(MONTHS[MONTHS.length - 1]);
-      }
-    }
-  };
-
-  const handleNextMonth = () => {
-    const currentIndex = MONTHS.indexOf(selectedMonth);
-    if (currentIndex < MONTHS.length - 1) {
-      setSelectedMonth(MONTHS[currentIndex + 1]);
-    } else {
-      const yearIndex = YEARS.indexOf(selectedYear);
-      if (yearIndex < YEARS.length - 1) {
-        setSelectedYear(YEARS[yearIndex + 1]);
-        setSelectedMonth(MONTHS[0]);
-      }
-    }
-  };
-
-  // Filter members list based on active state and search
+  // Filter members list based on active status and search
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
-      // Show all active members, or inactive only if they have a saved payment for this period
-      const hasCollection = !!currentCollectionsMap[m.memberNo];
-      const matchesActive = m.status === 'Active' || hasCollection;
-
+      const hasAnyDoc = MONTHS.some((mo) => !!yearCollectionsMap[`${m.memberNo}_${mo}`]);
+      const matchesActive = m.status === 'Active' || hasAnyDoc;
       const matchesSearch =
         m.memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.memberNo.toLowerCase().includes(searchTerm.toLowerCase());
-
       return matchesActive && matchesSearch;
     });
-  }, [members, currentCollectionsMap, searchTerm]);
+  }, [members, yearCollectionsMap, searchTerm]);
+
+  // Calculate live column totals and grand totals
+  const columnTotals = useMemo(() => {
+    const totals: { [month: string]: number } = {};
+    let grand = 0;
+
+    MONTHS.forEach((m) => {
+      let monthSum = 0;
+      filteredMembers.forEach((member) => {
+        const val = getCellValue(member.memberNo, m);
+        const parsed = parseFloat(val) || 0;
+        monthSum += parsed;
+      });
+      totals[m] = monthSum;
+      grand += monthSum;
+    });
+
+    return { monthly: totals, grand };
+  }, [filteredMembers, editBuffer, yearCollectionsMap]);
+
+  // Calculate each member's row total for selected year
+  const getMemberRowTotal = (memberNo: string): number => {
+    return MONTHS.reduce((sum, m) => {
+      const val = getCellValue(memberNo, m);
+      return sum + (parseFloat(val) || 0);
+    }, 0);
+  };
+
+  // Key navigation for fast matrix spreadsheet typing
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    member: Member,
+    monthIndex: number,
+    memberIndex: number
+  ) => {
+    const month = MONTHS[monthIndex];
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveCell(member, month);
+      // Move to same month of next member
+      const nextMember = filteredMembers[memberIndex + 1];
+      if (nextMember) {
+        const nextInput = document.getElementById(`matrix-cell-${nextMember.memberNo}-${month}`);
+        nextInput?.focus();
+      }
+    } else if (e.key === 'ArrowDown') {
+      const nextMember = filteredMembers[memberIndex + 1];
+      if (nextMember) {
+        e.preventDefault();
+        handleSaveCell(member, month);
+        const nextInput = document.getElementById(`matrix-cell-${nextMember.memberNo}-${month}`);
+        nextInput?.focus();
+      }
+    } else if (e.key === 'ArrowUp') {
+      const prevMember = filteredMembers[memberIndex - 1];
+      if (prevMember) {
+        e.preventDefault();
+        handleSaveCell(member, month);
+        const prevInput = document.getElementById(`matrix-cell-${prevMember.memberNo}-${month}`);
+        prevInput?.focus();
+      }
+    }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <span className="p-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-xl">
               <CheckSquare className="w-5 h-5" />
             </span>
             Monthly Collection Matrix
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Log, update, and manage monthly fund payments in a spreadsheet layout.
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            Type amounts directly into any month's cell — auto-saves instantly on typing.
           </p>
         </div>
 
         {/* Grand Total display card */}
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 flex items-center gap-4 shrink-0 shadow-xs">
-          <div className="p-3 bg-emerald-600 text-white rounded-xl">
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-3.5 sm:p-4 flex items-center gap-4 shrink-0 shadow-xs">
+          <div className="p-2.5 sm:p-3 bg-emerald-600 text-white rounded-xl">
             <Coins className="w-5 h-5" />
           </div>
           <div>
             <p className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider">
-              {selectedMonth} {selectedYear} Grand Total
+              {selectedYear} Total Collection
             </p>
-            <h2 className="text-xl font-black text-emerald-700 dark:text-emerald-300">
-              ₹{monthlyGrandTotal.toLocaleString('en-IN')}
+            <h2 className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-300">
+              ₹{columnTotals.grand.toLocaleString('en-IN')}
             </h2>
           </div>
         </div>
       </div>
 
-      {/* Selectors Bar */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-3xl shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+      {/* Control Bar: Year selector, View toggle, & Search */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm flex flex-col md:flex-row gap-3 sm:gap-4 items-center justify-between">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
           {/* Select Year */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Year:</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
+              className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
               id="collection-year-selector"
             >
               {YEARS.map((y) => (
@@ -302,44 +351,52 @@ export default function MonthlyCollection({
             </select>
           </div>
 
-          {/* Select Month */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Month:</span>
-            <div className="flex items-center gap-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-0.5 shadow-xs">
-              <button
-                onClick={handlePrevMonth}
-                type="button"
-                className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
-                title="Previous Month"
-                id="prev-month-btn"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-700">
+            <button
+              onClick={() => setViewMode('matrix')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'matrix'
+                  ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              }`}
+              id="collection-matrix-mode-btn"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              12-Month Matrix
+            </button>
+            <button
+              onClick={() => setViewMode('single')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'single'
+                  ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              }`}
+              id="collection-single-mode-btn"
+            >
+              <Columns className="w-3.5 h-3.5" />
+              Single Month
+            </button>
+          </div>
 
+          {/* If single month mode, show month dropdown */}
+          {viewMode === 'single' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Month:</span>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-2 py-1 bg-transparent text-zinc-800 dark:text-zinc-100 focus:outline-none text-xs font-bold cursor-pointer"
+                className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
                 id="collection-month-selector"
               >
                 {MONTHS.map((m) => (
-                  <option key={m} value={m} className="bg-white dark:bg-zinc-800">
+                  <option key={m} value={m}>
                     {m}
                   </option>
                 ))}
               </select>
-
-              <button
-                onClick={handleNextMonth}
-                type="button"
-                className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
-                title="Next Month"
-                id="next-month-btn"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Member Search filter */}
@@ -349,146 +406,296 @@ export default function MonthlyCollection({
           </div>
           <input
             type="text"
-            placeholder="Search member..."
+            placeholder="Search member name or no..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-semibold"
+            className="w-full pl-9 pr-4 py-1.5 sm:py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-semibold"
             id="collection-search-input"
           />
         </div>
       </div>
 
-      {/* Grid Table */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse" id="collection-grid-table">
-            <thead>
-              <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-400 dark:text-zinc-500 text-xs uppercase font-bold tracking-wider">
-                <th className="px-6 py-4 w-20">No.</th>
-                <th className="px-6 py-4 w-48">Member Name</th>
-                <th className="px-6 py-4 w-32">Amount (₹)</th>
-                <th className="px-6 py-4 w-36">Status</th>
-                <th className="px-6 py-4 w-40">Payment Mode</th>
-                <th className="px-6 py-4 w-28 text-center">Grand Total</th>
-                <th className="px-6 py-4 w-28 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
-              {filteredMembers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-zinc-400 font-medium">
-                    No active members found.
-                  </td>
+      {/* Typing Guide Tip */}
+      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 px-1">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span>
+            <strong>Typing Method:</strong> Enter amount in any cell. Press <strong>Enter / Tab / Arrow Down</strong> or click away to auto-save.
+          </span>
+        </div>
+        <span className="hidden sm:inline font-mono text-[11px] text-zinc-400">
+          Showing {filteredMembers.length} members
+        </span>
+      </div>
+
+      {/* 12-MONTH MATRIX VIEW */}
+      {viewMode === 'matrix' && (
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto smooth-scroll">
+            <table className="w-full text-left border-collapse text-xs" id="monthly-matrix-table">
+              <thead>
+                <tr className="border-b border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/80 text-zinc-500 dark:text-zinc-400 uppercase font-bold tracking-wider">
+                  <th className="px-3.5 py-3.5 w-14 sticky left-0 z-20 bg-zinc-50 dark:bg-zinc-900 shadow-r">No.</th>
+                  <th className="px-3.5 py-3.5 min-w-[140px] sticky left-14 z-20 bg-zinc-50 dark:bg-zinc-900 shadow-r">Member Name</th>
+                  {MONTH_SHORT.map((m, idx) => (
+                    <th key={m} className="px-2 py-3.5 min-w-[82px] text-center">
+                      <div className="font-bold">{m}</div>
+                      <div className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-normal mt-0.5">
+                        ₹{(columnTotals.monthly[MONTHS[idx]] || 0).toLocaleString('en-IN')}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-3.5 py-3.5 min-w-[90px] text-center bg-emerald-50/50 dark:bg-emerald-950/20 font-extrabold text-emerald-800 dark:text-emerald-300">
+                    Total (₹)
+                  </th>
+                  <th className="px-2.5 py-3.5 w-12 text-center">Reset</th>
                 </tr>
-              ) : (
-                filteredMembers.map((member) => {
-                  const cell = getCellValue(member.memberNo);
-                  const totalPaid = memberGrandTotals[member.memberNo] || 0;
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-sans">
+                {filteredMembers.length === 0 ? (
+                  <tr>
+                    <td colSpan={16} className="text-center py-12 text-zinc-400 font-medium">
+                      No active members found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMembers.map((member, memberIdx) => {
+                    const memberTotal = getMemberRowTotal(member.memberNo);
 
-                  return (
-                    <tr
-                      key={member.memberNo}
-                      className={`hover:bg-zinc-50/30 dark:hover:bg-zinc-800/10 transition-colors ${
-                        cell.status === 'Paid' ? 'bg-emerald-50/10 dark:bg-emerald-950/5' : ''
-                      }`}
-                    >
-                      {/* Member No */}
-                      <td className="px-6 py-4 font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        {member.memberNo}
-                      </td>
+                    return (
+                      <tr
+                        key={member.memberNo}
+                        className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors"
+                      >
+                        {/* Member No (Sticky left) */}
+                        <td className="px-3.5 py-2 font-mono font-bold text-zinc-900 dark:text-zinc-100 sticky left-0 z-10 bg-white dark:bg-zinc-900">
+                          {member.memberNo}
+                        </td>
 
-                      {/* Member Name */}
-                      <td className="px-6 py-4 font-bold text-zinc-800 dark:text-zinc-200">
-                        {member.memberName}
-                        {member.status === 'Inactive' && (
-                          <span className="ml-2 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
-                            Inactive
-                          </span>
-                        )}
-                      </td>
+                        {/* Member Name (Sticky left) */}
+                        <td className="px-3.5 py-2 font-semibold text-zinc-800 dark:text-zinc-200 sticky left-14 z-10 bg-white dark:bg-zinc-900 truncate max-w-[150px]">
+                          {member.memberName}
+                          {member.status === 'Inactive' && (
+                            <span className="ml-1 text-[9px] bg-zinc-100 dark:bg-zinc-800 text-zinc-400 px-1 py-0.5 rounded">
+                              Off
+                            </span>
+                          )}
+                        </td>
 
-                      {/* Amount Input */}
-                      <td className="px-6 py-4">
-                        <input
-                          type="number"
-                          value={cell.amount}
-                          onChange={(e) => handleCellChange(member, 'amount', e.target.value)}
-                          onBlur={() => autoSaveRow(member, getCellValue(member.memberNo))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              autoSaveRow(member, getCellValue(member.memberNo));
-                            }
-                          }}
-                          className={`w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border rounded-lg text-xs font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100 ${
-                            cell.isDirty ? 'border-amber-400' : 'border-zinc-200 dark:border-zinc-700'
-                          }`}
-                          placeholder="2500"
-                          id={`collection-amount-input-${member.memberNo}`}
-                        />
-                      </td>
+                        {/* 12 Months Direct Typing Inputs */}
+                        {MONTHS.map((month, monthIdx) => {
+                          const cellVal = getCellValue(member.memberNo, month);
+                          const cellMode = getCellMode(member.memberNo, month);
+                          const isDirty = editBuffer[`${member.memberNo}_${month}`] !== undefined;
+                          const hasValue = parseFloat(cellVal) > 0;
 
-                      {/* Status Selector */}
-                      <td className="px-6 py-4">
-                        <div className="flex gap-1">
-                          {(['Paid', 'Pending'] as const).map((st) => (
-                            <button
-                              key={st}
-                              type="button"
-                              onClick={() => handleCellChange(member, 'status', st, true)}
-                              className={`flex-1 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
-                                cell.status === st
-                                  ? st === 'Paid'
-                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                                    : 'bg-zinc-500 border-zinc-500 text-white shadow-xs'
-                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200'
-                              }`}
-                              id={`collection-status-btn-${member.memberNo}-${st.toLowerCase()}`}
-                            >
-                              {st}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
+                          return (
+                            <td key={month} className="px-1 py-1.5 text-center">
+                              <div className="relative flex flex-col items-center gap-0.5">
+                                <input
+                                  id={`matrix-cell-${member.memberNo}-${month}`}
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={cellVal}
+                                  placeholder="—"
+                                  onChange={(e) => handleCellType(member.memberNo, month, e.target.value)}
+                                  onBlur={() => handleSaveCell(member, month)}
+                                  onKeyDown={(e) => handleKeyDown(e, member, monthIdx, memberIdx)}
+                                  className={`w-full text-center px-1.5 py-1.5 rounded-lg font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all border ${
+                                    isDirty
+                                      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 text-amber-900 dark:text-amber-200 ring-1 ring-amber-400'
+                                      : hasValue
+                                      ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold'
+                                      : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
+                                  }`}
+                                />
+                                {hasValue && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleMode(member, month)}
+                                    title={`Payment Mode: ${cellMode} (Tap to toggle)`}
+                                    className={`text-[8px] font-bold px-1 py-0.2 rounded leading-tight transition-colors cursor-pointer ${
+                                      cellMode === 'Google Pay'
+                                        ? 'text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40'
+                                        : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                                    }`}
+                                  >
+                                    {cellMode === 'Google Pay' ? 'GPay' : 'Cash'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
 
-                      {/* Payment Mode Selector */}
-                      <td className="px-6 py-4">
-                        <select
-                          value={cell.paymentMode}
-                          onChange={(e) => handleCellChange(member, 'paymentMode', e.target.value, true)}
-                          className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
-                          id={`collection-paymode-selector-${member.memberNo}`}
-                        >
-                          <option value="Cash">Cash</option>
-                          <option value="Google Pay">Google Pay</option>
-                        </select>
-                      </td>
+                        {/* Member Total Paid */}
+                        <td className="px-3.5 py-2 text-center font-bold font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
+                          ₹{memberTotal.toLocaleString('en-IN')}
+                        </td>
 
-                      {/* Member Grand Total Paid */}
-                      <td className="px-6 py-4 text-center font-bold text-zinc-900 dark:text-zinc-50 font-mono text-xs">
-                        ₹{totalPaid.toLocaleString('en-IN')}
-                      </td>
-
-                      {/* Action buttons */}
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 shrink-0">
+                        {/* Row Reset */}
+                        <td className="px-2 py-2 text-center">
                           <button
-                            onClick={() => handleDeleteRow(member)}
-                            className="p-1.5 bg-zinc-50 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 rounded-lg transition-all cursor-pointer"
-                            title="Clear record"
-                            id={`collection-delete-row-btn-${member.memberNo}`}
+                            onClick={() => handleClearMemberYear(member)}
+                            className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                            title={`Clear all ${selectedYear} records for ${member.memberName}`}
+                            id={`matrix-clear-row-${member.memberNo}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+              {/* Footer row with Totals */}
+              <tfoot>
+                <tr className="border-t-2 border-zinc-300 dark:border-zinc-700 bg-zinc-100/70 dark:bg-zinc-800/60 font-bold text-zinc-800 dark:text-zinc-100">
+                  <td colSpan={2} className="px-3.5 py-3 sticky left-0 z-20 bg-zinc-100 dark:bg-zinc-800 font-extrabold uppercase text-[11px]">
+                    Total
+                  </td>
+                  {MONTHS.map((m) => (
+                    <td key={m} className="px-1 py-3 text-center font-mono text-emerald-700 dark:text-emerald-300 font-extrabold text-[11px]">
+                      ₹{(columnTotals.monthly[m] || 0).toLocaleString('en-IN')}
+                    </td>
+                  ))}
+                  <td className="px-3.5 py-3 text-center font-mono text-emerald-800 dark:text-emerald-200 font-black text-xs bg-emerald-100/60 dark:bg-emerald-900/40">
+                    ₹{columnTotals.grand.toLocaleString('en-IN')}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* SINGLE MONTH QUICK TYPING VIEW */}
+      {viewMode === 'single' && (
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse" id="single-month-table">
+              <thead>
+                <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-400 dark:text-zinc-500 text-xs uppercase font-bold tracking-wider">
+                  <th className="px-6 py-4 w-20">No.</th>
+                  <th className="px-6 py-4 w-52">Member Name</th>
+                  <th className="px-6 py-4 w-44">Amount for {selectedMonth} (₹)</th>
+                  <th className="px-6 py-4 w-36 text-center">Payment Mode</th>
+                  <th className="px-6 py-4 w-36 text-center">{selectedYear} Paid Total</th>
+                  <th className="px-6 py-4 w-24 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
+                {filteredMembers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
+                      No active members found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMembers.map((member, memberIdx) => {
+                    const cellVal = getCellValue(member.memberNo, selectedMonth);
+                    const cellMode = getCellMode(member.memberNo, selectedMonth);
+                    const isDirty = editBuffer[`${member.memberNo}_${selectedMonth}`] !== undefined;
+                    const hasValue = parseFloat(cellVal) > 0;
+                    const yearTotal = getMemberRowTotal(member.memberNo);
+
+                    return (
+                      <tr
+                        key={member.memberNo}
+                        className={`hover:bg-zinc-50/40 dark:hover:bg-zinc-800/20 transition-colors ${
+                          hasValue ? 'bg-emerald-50/20 dark:bg-emerald-950/10' : ''
+                        }`}
+                      >
+                        {/* Member No */}
+                        <td className="px-6 py-3.5 font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                          {member.memberNo}
+                        </td>
+
+                        {/* Member Name */}
+                        <td className="px-6 py-3.5 font-bold text-zinc-800 dark:text-zinc-200">
+                          {member.memberName}
+                          {member.status === 'Inactive' && (
+                            <span className="ml-2 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
+                              Inactive
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Direct Amount Input */}
+                        <td className="px-6 py-3.5">
+                          <input
+                            id={`single-cell-${member.memberNo}`}
+                            type="number"
+                            inputMode="numeric"
+                            value={cellVal}
+                            placeholder="Type amount..."
+                            onChange={(e) => handleCellType(member.memberNo, selectedMonth, e.target.value)}
+                            onBlur={() => handleSaveCell(member, selectedMonth)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveCell(member, selectedMonth);
+                                const nextMember = filteredMembers[memberIdx + 1];
+                                if (nextMember) {
+                                  document.getElementById(`single-cell-${nextMember.memberNo}`)?.focus();
+                                }
+                              }
+                            }}
+                            className={`w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border rounded-xl text-sm font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 ${
+                              isDirty
+                                ? 'border-amber-400 ring-1 ring-amber-400'
+                                : hasValue
+                                ? 'border-emerald-500/50 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300'
+                                : 'border-zinc-200 dark:border-zinc-700'
+                            }`}
+                          />
+                        </td>
+
+                        {/* 1-Tap Mode Toggle */}
+                        <td className="px-6 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleMode(member, selectedMonth)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              cellMode === 'Google Pay'
+                                ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                            }`}
+                          >
+                            {cellMode}
+                          </button>
+                        </td>
+
+                        {/* Member Year Total Paid */}
+                        <td className="px-6 py-3.5 text-center font-mono font-bold text-emerald-700 dark:text-emerald-300 text-sm">
+                          ₹{yearTotal.toLocaleString('en-IN')}
+                        </td>
+
+                        {/* Clear Action */}
+                        <td className="px-6 py-3.5 text-right">
+                          <button
+                            onClick={() => {
+                              handleCellType(member.memberNo, selectedMonth, '');
+                              const doc = yearCollectionsMap[`${member.memberNo}_${selectedMonth}`];
+                              if (doc) deleteMonthlyCollection(doc.id);
+                            }}
+                            className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all cursor-pointer"
+                            title="Clear this month"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
