@@ -44,7 +44,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
   const [memberNo, setMemberNo] = useState('');
   const [loanDate, setLoanDate] = useState(new Date().toISOString().split('T')[0]);
   const [loanAmount, setLoanAmount] = useState('');
-  const [loanReason, setLoanReason] = useState('');
   const [loanNotes, setLoanNotes] = useState('');
   const [loanPayMode, setLoanPayMode] = useState<'Cash' | 'Google Pay'>('Google Pay');
   const [isCustomMember, setIsCustomMember] = useState(false);
@@ -123,7 +122,14 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       .reduce((sum, l) => sum + l.amount, 0);
   }, [repayMemberNo, actualLoans]);
 
-  // Save new loan disbursement
+  // Selected beneficiary active loan check for modal banner
+  const selectedBeneficiaryActiveLoan = useMemo(() => {
+    const targetNo = isCustomMember ? '' : memberNo;
+    if (!targetNo) return null;
+    return actualLoans.find((l) => l.memberNo === targetNo && l.amount > 0) || null;
+  }, [isCustomMember, memberNo, actualLoans]);
+
+  // Save new loan disbursement (combines into single active entry if member already has an active loan)
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -131,12 +137,12 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
     const finalMemberName = isCustomMember ? customMemberName.trim() : '';
 
     if (isCustomMember) {
-      if (!customMemberName.trim() || !loanAmount || !loanReason) {
+      if (!customMemberName.trim() || !loanAmount) {
         addToast('Please fill all required fields', 'error');
         return;
       }
     } else {
-      if (!memberNo || !loanAmount || !loanReason) {
+      if (!memberNo || !loanAmount) {
         addToast('Please fill all required fields', 'error');
         return;
       }
@@ -157,14 +163,59 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       selectedMemberName = selectedMember.memberName;
     }
 
+    // Check if there is an existing active loan for this member
+    const existingActiveLoan = actualLoans.find(
+      (l) => l.memberNo === finalMemberNo && l.amount > 0
+    );
+
+    if (existingActiveLoan) {
+      // Merge into a single entry: add the second amount to the first
+      const newTotalAmount = existingActiveLoan.amount + amt;
+
+      const newDisbursementNote = `[${loanDate}] +₹${amt.toLocaleString('en-IN')}${loanNotes.trim() ? `: ${loanNotes.trim()}` : ''}`;
+      const combinedNotes = existingActiveLoan.notes
+        ? `${existingActiveLoan.notes}\n${newDisbursementNote}`
+        : newDisbursementNote;
+
+      const mergedLoanObj: Loan = {
+        ...existingActiveLoan,
+        amount: newTotalAmount,
+        date: loanDate, // Update to latest disbursement date
+        notes: combinedNotes,
+        paymentMode: loanPayMode,
+        type: 'loan'
+      };
+
+      try {
+        await saveLoan(mergedLoanObj);
+        addToast(
+          `Added ₹${amt.toLocaleString('en-IN')} to existing loan for ${selectedMemberName}. New Total Balance: ₹${newTotalAmount.toLocaleString('en-IN')}`,
+          'success'
+        );
+        setIsLoanModalOpen(false);
+
+        // Reset
+        setMemberNo('');
+        setCustomMemberName('');
+        setIsCustomMember(false);
+        setLoanAmount('');
+        setLoanNotes('');
+        setLoanPayMode('Google Pay');
+      } catch (err) {
+        console.error(err);
+        addToast('Failed to update loan entry', 'error');
+      }
+      return;
+    }
+
+    // Otherwise create a new loan entry
     const loanObj: Loan = {
       id: `loan_${Date.now()}`,
       memberNo: finalMemberNo,
       memberName: selectedMemberName,
       date: loanDate,
       amount: amt,
-      reason: loanReason.trim(),
-      notes: loanNotes.trim(),
+      notes: loanNotes.trim() ? `[${loanDate}] ₹${amt.toLocaleString('en-IN')}: ${loanNotes.trim()}` : `[${loanDate}] ₹${amt.toLocaleString('en-IN')}`,
       paymentMode: loanPayMode,
       createdAt: Date.now(),
       type: 'loan' // Explicitly set to 'loan'
@@ -180,7 +231,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       setCustomMemberName('');
       setIsCustomMember(false);
       setLoanAmount('');
-      setLoanReason('');
       setLoanNotes('');
       setLoanPayMode('Google Pay');
     } catch (err) {
@@ -454,7 +504,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                   <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Member</th>
                   <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4">Reason</th>
                   <th className="px-6 py-4">Payment Mode</th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
@@ -462,7 +511,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
                 {displayLoans.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-zinc-400 font-medium">
+                    <td colSpan={5} className="text-center py-12 text-zinc-400 font-medium">
                       No active loans found in the registry.
                     </td>
                   </tr>
@@ -494,9 +543,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                         ) : (
                           `₹${loan.amount.toLocaleString('en-IN')}`
                         )}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-zinc-800 dark:text-zinc-200">
-                        {loan.reason}
                       </td>
                       <td className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                         {loan.paymentMode || 'Cash'}
@@ -686,6 +732,25 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                       ))}
                     </select>
                   )}
+
+                  {/* Active loan preview consolidation indicator */}
+                  {selectedBeneficiaryActiveLoan && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs flex items-start gap-2.5 mt-2">
+                      <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-amber-900 dark:text-amber-200">
+                          Active Loan Found: ₹{selectedBeneficiaryActiveLoan.amount.toLocaleString('en-IN')}
+                        </p>
+                        <p className="text-amber-700 dark:text-amber-400 text-[11px] mt-0.5">
+                          New amount will be added into this single entry (Combined Balance: ₹
+                          {(
+                            selectedBeneficiaryActiveLoan.amount + (parseFloat(loanAmount) || 0)
+                          ).toLocaleString('en-IN')}
+                          ).
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Amount and Date */}
@@ -744,22 +809,6 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                   </div>
                 </div>
 
-                {/* Reason */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
-                    Reason for Loan *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={loanReason}
-                    onChange={(e) => setLoanReason(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
-                    placeholder="e.g. Marriage assistance"
-                    id="loan-form-reason"
-                  />
-                </div>
-
                 {/* Notes */}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
@@ -770,7 +819,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                     value={loanNotes}
                     onChange={(e) => setLoanNotes(e.target.value)}
                     className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                    placeholder="Enter additional terms or details"
+                    placeholder="Enter additional terms or details (optional)"
                     id="loan-form-notes"
                   />
                 </div>

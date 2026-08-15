@@ -229,7 +229,6 @@ export default function Reports({
             'Principal Amount': l.amount,
             'Total Repaid to Date': reps,
             'Remaining Balance': l.amount - reps,
-            'Reason': l.reason,
             'Payment Mode': l.paymentMode
           };
         }),
@@ -241,7 +240,6 @@ export default function Reports({
           'Principal Amount': l.amount,
           'Total Repaid to Date': 0,
           'Remaining Balance': 0,
-          'Reason': l.reason,
           'Payment Mode': l.paymentMode
         }))
       ];
@@ -647,14 +645,13 @@ export default function Reports({
                         <th className="px-4 py-3">Disbursement</th>
                         <th className="px-4 py-3">Total Repaid</th>
                         <th className="px-4 py-3">Loan Balance</th>
-                        <th className="px-4 py-3">Reason</th>
                         <th className="px-4 py-3">Payment Mode</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                       {loans.filter((l) => l.type === 'loan' || !l.type).length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-6 text-zinc-400 font-medium">No active loans logged.</td>
+                          <td colSpan={5} className="text-center py-6 text-zinc-400 font-medium">No active loans logged.</td>
                         </tr>
                       ) : (
                         loans.filter((l) => l.type === 'loan' || !l.type).map((l) => {
@@ -666,7 +663,6 @@ export default function Reports({
                               <td className="px-4 py-2.5 font-bold font-mono">₹{l.amount.toLocaleString('en-IN')}</td>
                               <td className="px-4 py-2.5 font-bold font-mono text-emerald-600">₹{reps.toLocaleString('en-IN')}</td>
                               <td className="px-4 py-2.5 font-bold font-mono text-rose-600">₹{mBal.toLocaleString('en-IN')}</td>
-                              <td className="px-4 py-2.5 text-zinc-500">{l.reason}</td>
                               <td className="px-4 py-2.5 text-zinc-500">{l.paymentMode || 'Cash'}</td>
                             </tr>
                           );

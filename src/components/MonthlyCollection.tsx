@@ -6,7 +6,9 @@ import {
   CheckSquare,
   LayoutGrid,
   Columns,
-  Sparkles
+  Sparkles,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Member, MonthlyCollection as ColType } from '../types';
 import { saveMonthlyCollection, deleteMonthlyCollection } from '../firebase';
@@ -47,7 +49,7 @@ export default function MonthlyCollection({
   addToast
 }: MonthlyCollectionProps) {
   const [selectedYear, setSelectedYear] = useState<string>(() => getCurrentFinancialYear());
-  const [viewMode, setViewMode] = useState<'matrix' | 'single'>('matrix');
+  const [viewMode, setViewMode] = useState<'matrix' | 'single'>('single');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentMonthName());
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -236,6 +238,33 @@ export default function MonthlyCollection({
     });
   }, [members, yearCollectionsMap, searchTerm]);
 
+  // Month navigation handlers (auto wraps year when moving past April or May)
+  const handlePrevMonth = () => {
+    const currentIndex = MONTHS.indexOf(selectedMonth);
+    if (currentIndex > 0) {
+      setSelectedMonth(MONTHS[currentIndex - 1]);
+    } else {
+      const yearIndex = YEARS.indexOf(selectedYear);
+      if (yearIndex > 0) {
+        setSelectedYear(YEARS[yearIndex - 1]);
+        setSelectedMonth(MONTHS[MONTHS.length - 1]);
+      }
+    }
+  };
+
+  const handleNextMonth = () => {
+    const currentIndex = MONTHS.indexOf(selectedMonth);
+    if (currentIndex < MONTHS.length - 1) {
+      setSelectedMonth(MONTHS[currentIndex + 1]);
+    } else {
+      const yearIndex = YEARS.indexOf(selectedYear);
+      if (yearIndex < YEARS.length - 1) {
+        setSelectedYear(YEARS[yearIndex + 1]);
+        setSelectedMonth(MONTHS[0]);
+      }
+    }
+  };
+
   // Calculate live column totals and grand totals
   const columnTotals = useMemo(() => {
     const totals: { [month: string]: number } = {};
@@ -322,11 +351,16 @@ export default function MonthlyCollection({
           </div>
           <div>
             <p className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider">
-              {selectedYear} Total Collection
+              {viewMode === 'single' ? `${selectedMonth} ${selectedYear} Collection` : `${selectedYear} Total Collection`}
             </p>
             <h2 className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-300">
-              ₹{columnTotals.grand.toLocaleString('en-IN')}
+              ₹{(viewMode === 'single' ? columnTotals.monthly[selectedMonth] || 0 : columnTotals.grand).toLocaleString('en-IN')}
             </h2>
+            {viewMode === 'single' && (
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                Annual Year Total: ₹{columnTotals.grand.toLocaleString('en-IN')}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -340,7 +374,7 @@ export default function MonthlyCollection({
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
+              className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold cursor-pointer"
               id="collection-year-selector"
             >
               {YEARS.map((y) => (
@@ -354,18 +388,6 @@ export default function MonthlyCollection({
           {/* View Mode Toggle */}
           <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-700">
             <button
-              onClick={() => setViewMode('matrix')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'matrix'
-                  ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
-              }`}
-              id="collection-matrix-mode-btn"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              12-Month Matrix
-            </button>
-            <button
               onClick={() => setViewMode('single')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'single'
@@ -377,24 +399,58 @@ export default function MonthlyCollection({
               <Columns className="w-3.5 h-3.5" />
               Single Month
             </button>
+            <button
+              onClick={() => setViewMode('matrix')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'matrix'
+                  ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              }`}
+              id="collection-matrix-mode-btn"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              12-Month Matrix
+            </button>
           </div>
 
-          {/* If single month mode, show month dropdown */}
+          {/* If single month mode, show month dropdown with prev/next buttons */}
           {viewMode === 'single' && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Month:</span>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold"
-                id="collection-month-selector"
-              >
-                {MONTHS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-0.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-0.5 shadow-xs">
+                <button
+                  onClick={handlePrevMonth}
+                  type="button"
+                  className="p-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
+                  title="Previous Month"
+                  id="prev-month-btn"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-2 py-1 bg-transparent text-zinc-800 dark:text-zinc-100 focus:outline-none text-xs font-bold cursor-pointer"
+                  id="collection-month-selector"
+                >
+                  {MONTHS.map((m) => (
+                    <option key={m} value={m} className="bg-white dark:bg-zinc-800">
+                      {m}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleNextMonth}
+                  type="button"
+                  className="p-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
+                  title="Next Month"
+                  id="next-month-btn"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -498,10 +554,12 @@ export default function MonthlyCollection({
                                   inputMode="numeric"
                                   value={cellVal}
                                   placeholder="—"
+                                  onFocus={(e) => e.currentTarget.select()}
+                                  onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
                                   onChange={(e) => handleCellType(member.memberNo, month, e.target.value)}
                                   onBlur={() => handleSaveCell(member, month)}
                                   onKeyDown={(e) => handleKeyDown(e, member, monthIdx, memberIdx)}
-                                  className={`w-full text-center px-1.5 py-1.5 rounded-lg font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all border ${
+                                  className={`w-full text-center px-1.5 py-1.5 rounded-lg font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all border cursor-text ${
                                     isDirty
                                       ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 text-amber-900 dark:text-amber-200 ring-1 ring-amber-400'
                                       : hasValue
@@ -631,6 +689,8 @@ export default function MonthlyCollection({
                             inputMode="numeric"
                             value={cellVal}
                             placeholder="Type amount..."
+                            onFocus={(e) => e.currentTarget.select()}
+                            onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
                             onChange={(e) => handleCellType(member.memberNo, selectedMonth, e.target.value)}
                             onBlur={() => handleSaveCell(member, selectedMonth)}
                             onKeyDown={(e) => {

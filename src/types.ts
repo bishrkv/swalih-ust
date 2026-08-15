@@ -27,7 +27,7 @@ export interface Loan {
   memberName: string;
   date: string; // YYYY-MM-DD
   amount: number;
-  reason: string;
+  reason?: string;
   notes: string;
   paymentMode: 'Cash' | 'Google Pay';
   createdAt: number;

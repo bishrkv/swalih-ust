@@ -68,15 +68,15 @@ export default function MemberProfile({
       .reduce((sum, c) => sum + c.amount, 0);
   }, [memberCollections]);
 
-  const totalLoansTaken = useMemo(() => {
-    return memberLoans.reduce((sum, l) => sum + l.amount, 0);
-  }, [memberLoans]);
-
   const totalLoansReturned = useMemo(() => {
     return memberRepayments.reduce((sum, r) => sum + r.amount, 0);
   }, [memberRepayments]);
 
-  const remainingLoanBalance = totalLoansTaken - totalLoansReturned;
+  const remainingLoanBalance = useMemo(() => {
+    return memberLoans.reduce((sum, l) => sum + l.amount, 0);
+  }, [memberLoans]);
+
+  const totalLoansTaken = remainingLoanBalance + totalLoansReturned;
 
   // Expected financial year list for pending months calculation
   const years = ['2025-2026', '2026-2027', '2027-2028', '2028-2029'];
@@ -356,7 +356,6 @@ export default function MemberProfile({
                           <tr className="border-b border-zinc-100 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider">
                             <th className="py-2">Date</th>
                             <th className="py-2">Amount</th>
-                            <th className="py-2">Reason</th>
                             <th className="py-2">Payment Mode</th>
                           </tr>
                         </thead>
@@ -368,9 +367,6 @@ export default function MemberProfile({
                               </td>
                               <td className="py-2.5 font-bold text-rose-600 dark:text-rose-400">
                                 ₹{loan.amount.toLocaleString('en-IN')}
-                              </td>
-                              <td className="py-2.5 font-medium text-zinc-800 dark:text-zinc-200">
-                                {loan.reason}
                               </td>
                               <td className="py-2.5 text-zinc-500 dark:text-zinc-400">
                                 {loan.paymentMode || 'Cash'}
