@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Users,
-  Coins,
   Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
   TrendingUp,
   CreditCard,
-  History,
   Calendar,
   Clock
 } from 'lucide-react';
@@ -45,7 +40,7 @@ export default function Dashboard({
     return () => clearInterval(timer);
   }, []);
 
-  // Calculations
+  // Member stats
   const totalMembers = members.length;
   const activeMembers = members.filter(m => m.status === 'Active').length;
 
@@ -170,94 +165,27 @@ export default function Dashboard({
     hour12: true
   });
 
-  // Recent 5 activities combined
-  const activities: { type: string; title: string; amount: number; date: string; mode: string }[] = [];
-  
-  collections.filter(c => c.status === 'Paid').slice(0, 5).forEach(c => {
-    activities.push({
-      type: 'Collection',
-      title: `Collection from Member ${c.memberNo} (${c.memberName})`,
-      amount: c.amount,
-      date: new Date(c.updatedAt).toISOString().split('T')[0],
-      mode: c.paymentMode || 'Cash'
-    });
-  });
-
-  processedLoans.slice(0, 5).forEach(l => {
-    activities.push({
-      type: 'Loan Given',
-      title: `Loan given to Member ${l.memberNo} (${l.memberName})`,
-      amount: -l.amount,
-      date: l.date,
-      mode: l.paymentMode || 'Cash'
-    });
-  });
-
-  repayments.slice(0, 5).forEach(r => {
-    activities.push({
-      type: 'Repayment',
-      title: `Loan repayment by Member ${r.memberNo} (${r.memberName})`,
-      amount: r.amount,
-      date: r.date,
-      mode: r.paymentMode || 'Cash'
-    });
-  });
-
-  income.slice(0, 5).forEach(i => {
-    activities.push({
-      type: 'Income',
-      title: `${i.category}: ${i.description}`,
-      amount: i.amount,
-      date: i.date,
-      mode: i.paymentMode || 'Cash'
-    });
-  });
-
-  expense.slice(0, 5).forEach(e => {
-    activities.push({
-      type: 'Expense',
-      title: `${e.category}: ${e.description}`,
-      amount: -e.amount,
-      date: e.date,
-      mode: e.paymentMode || 'Cash'
-    });
-  });
-
-  // Sort activities by date desc
-  const recentActivities = activities
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5);
-
   const statsCards = [
     {
       title: 'Total Balance',
       value: `₹${totalBalance.toLocaleString('en-IN')}`,
       subtitle: 'Net available funds',
       icon: Wallet,
-      color: 'from-green-600 to-emerald-700',
-      textColor: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-50 dark:bg-green-950/20',
+      color: 'from-emerald-600 to-teal-700',
+      textColor: 'text-emerald-600 dark:text-emerald-400',
+      bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
       valueColor: 'text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-500',
       tab: 'reports' as const
-    },
-    {
-      title: 'Total Collection',
-      value: `₹${totalCollection.toLocaleString('en-IN')}`,
-      subtitle: 'Monthly + F5W Collections',
-      icon: Coins,
-      color: 'from-emerald-500 to-green-600',
-      textColor: 'text-emerald-600 dark:text-emerald-400',
-      bgColor: 'bg-emerald-50 dark:bg-emerald-950/20',
-      tab: 'grand-total' as const
     },
     {
       title: 'Cash in Hand',
       value: `₹${cashInHand.toLocaleString('en-IN')}`,
       subtitle: 'Physical cash available',
       icon: TrendingUp,
-      color: 'from-emerald-600 to-emerald-800',
-      textColor: 'text-emerald-700 dark:text-emerald-300',
-      bgColor: 'bg-emerald-100/50 dark:bg-emerald-950/30',
+      color: 'from-green-600 to-emerald-800',
+      textColor: 'text-green-700 dark:text-green-300',
+      bgColor: 'bg-green-100/60 dark:bg-green-950/30',
+      valueColor: 'text-green-700 dark:text-green-300 group-hover:text-green-600',
       tab: 'reports' as const
     },
     {
@@ -268,28 +196,8 @@ export default function Dashboard({
       color: 'from-sky-500 to-blue-600',
       textColor: 'text-sky-600 dark:text-sky-400',
       bgColor: 'bg-sky-50 dark:bg-sky-950/20',
+      valueColor: 'text-sky-600 dark:text-sky-400 group-hover:text-sky-500',
       tab: 'reports' as const
-    },
-    {
-      title: 'Loans Remaining',
-      value: `₹${Math.max(0, totalLoans - totalRepayments).toLocaleString('en-IN')}`,
-      subtitle: `Total Disbursed: ₹${totalLoans.toLocaleString('en-IN')}`,
-      icon: ArrowUpRight,
-      color: 'from-rose-500 to-rose-600',
-      textColor: 'text-rose-600 dark:text-rose-400',
-      bgColor: 'bg-rose-50 dark:bg-rose-950/20',
-      valueColor: 'text-rose-600 dark:text-rose-400 group-hover:text-rose-500',
-      tab: 'loans' as const
-    },
-    {
-      title: 'Given Amount',
-      value: `₹${totalGivenAmount.toLocaleString('en-IN')}`,
-      subtitle: 'Non-repayable grants',
-      icon: ArrowUpRight,
-      color: 'from-amber-500 to-amber-600',
-      textColor: 'text-amber-600 dark:text-amber-400',
-      bgColor: 'bg-amber-50 dark:bg-amber-950/20',
-      tab: 'given' as const
     }
   ];
 
@@ -325,8 +233,8 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Stats Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Stats Bento Grid - 3 Balance Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {statsCards.map((card, idx) => {
           const Icon = card.icon;
           return (
@@ -357,124 +265,6 @@ export default function Dashboard({
             </motion.div>
           );
         })}
-      </div>
-
-      {/* Lower Section (Recent Activities and Fund Breakdown) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Recent Ledger Entries */}
-        <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                <History className="w-5 h-5" />
-              </div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Recent Activities</h2>
-            </div>
-            <button
-              onClick={() => onNavigate('reports')}
-              className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-              id="dashboard-all-activities-btn"
-            >
-              View Reports
-            </button>
-          </div>
-
-          {recentActivities.length === 0 ? (
-            <div className="py-12 text-center text-zinc-400 text-sm">
-              No recent entries found. Begin adding collections or transactions.
-            </div>
-          ) : (
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {recentActivities.map((act, index) => {
-                const isNegative = act.amount < 0;
-                return (
-                  <div key={index} className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                        {act.title}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
-                        <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-md font-medium">
-                          {act.type}
-                        </span>
-                        <span>•</span>
-                        <span>{act.date}</span>
-                        <span>•</span>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          {act.mode}
-                        </span>
-                      </div>
-                    </div>
-                    <div className={`font-mono font-bold text-sm shrink-0 ${isNegative ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                      {isNegative ? '-' : '+'}₹{Math.abs(act.amount).toLocaleString('en-IN')}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Payment Methods and System State */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex-1">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-4">Payment Methods</h2>
-            
-            <div className="space-y-4">
-              {/* Cash Progress */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500 font-medium">Cash in Hand</span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                    ₹{cashInHand.toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-600 rounded-full"
-                    style={{
-                      width: `${totalBalance > 0 ? Math.max(0, Math.min(100, (cashInHand / totalBalance) * 100)) : 0}%`
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-[11px] text-zinc-400">
-                  <span>{totalBalance > 0 ? `${Math.round((cashInHand / totalBalance) * 100)}% of total` : '0%'}</span>
-                </div>
-              </div>
-
-              {/* GPay Progress */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500 font-medium">Google Pay Balance</span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                    ₹{googlePayBalance.toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-sky-500 rounded-full"
-                    style={{
-                      width: `${totalBalance > 0 ? Math.max(0, Math.min(100, (googlePayBalance / totalBalance) * 100)) : 0}%`
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-[11px] text-zinc-400">
-                  <span>{totalBalance > 0 ? `${Math.round((googlePayBalance / totalBalance) * 100)}% of total` : '0%'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Status Box */}
-            <div className="mt-6 p-4 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-2xl border border-emerald-100/50 dark:border-emerald-900/30">
-              <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                Account Status
-              </h4>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                The Ledger books are balanced and sync'd to Google Firebase Firestore. Standard security rules are active.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
