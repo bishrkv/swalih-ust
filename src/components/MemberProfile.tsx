@@ -369,7 +369,13 @@ export default function MemberProfile({
                                 ₹{loan.amount.toLocaleString('en-IN')}
                               </td>
                               <td className="py-2.5 text-zinc-500 dark:text-zinc-400">
-                                {loan.paymentMode || 'Cash'}
+                                {loan.paymentMode === 'Split' || ((loan.cashAmount ?? 0) > 0 && (loan.gpayAmount ?? 0) > 0) ? (
+                                  <span className="text-[11px] font-medium">
+                                    Split (₹{(loan.cashAmount || 0).toLocaleString('en-IN')} Cash, ₹{(loan.gpayAmount || 0).toLocaleString('en-IN')} GPay)
+                                  </span>
+                                ) : (
+                                  loan.paymentMode || 'Cash'
+                                )}
                               </td>
                             </tr>
                           ))}

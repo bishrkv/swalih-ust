@@ -122,7 +122,13 @@ export default function Reports({
     const collCash = collections.filter(c => c.status === 'Paid' && (c.paymentMode === 'Cash' || !c.paymentMode)).reduce((sum, c) => sum + c.amount, 0) + f5wCashTotal;
     const incCash = income.filter(i => i.paymentMode === 'Cash' || !i.paymentMode).reduce((sum, i) => sum + i.amount, 0);
     const repCash = repayments.filter(r => r.paymentMode === 'Cash' || !r.paymentMode).reduce((sum, r) => sum + r.amount, 0);
-    const givCash = processedLoans.filter(l => l.paymentMode === 'Cash' || !l.paymentMode).reduce((sum, l) => sum + l.amount, 0);
+    const givCash = processedLoans.reduce((sum, l) => {
+      if (typeof l.cashAmount === 'number' && typeof l.gpayAmount === 'number') {
+        return sum + l.cashAmount;
+      }
+      if (l.paymentMode === 'Google Pay') return sum;
+      return sum + l.amount;
+    }, 0);
     const expCash = expense.filter(e => e.paymentMode === 'Cash' || !e.paymentMode).reduce((sum, e) => sum + e.amount, 0);
     
     // Drawings / Transfers (Google Pay <-> Hand)
@@ -138,7 +144,13 @@ export default function Reports({
     const collGPay = collections.filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay').reduce((sum, c) => sum + c.amount, 0) + f5wGPayTotal;
     const incGPay = income.filter(i => i.paymentMode === 'Google Pay').reduce((sum, i) => sum + i.amount, 0);
     const repGPay = repayments.filter(r => r.paymentMode === 'Google Pay').reduce((sum, r) => sum + r.amount, 0);
-    const givGPay = processedLoans.filter(l => l.paymentMode === 'Google Pay').reduce((sum, l) => sum + l.amount, 0);
+    const givGPay = processedLoans.reduce((sum, l) => {
+      if (typeof l.cashAmount === 'number' && typeof l.gpayAmount === 'number') {
+        return sum + l.gpayAmount;
+      }
+      if (l.paymentMode === 'Google Pay') return sum + l.amount;
+      return sum;
+    }, 0);
     const expGPay = expense.filter(e => e.paymentMode === 'Google Pay').reduce((sum, e) => sum + e.amount, 0);
     const gpayBalance = (collGPay + incGPay + repGPay + handToGpay - gpayToHand) - (givGPay + expGPay);
 
@@ -236,7 +248,9 @@ export default function Reports({
             'Principal Amount': l.amount,
             'Total Repaid to Date': reps,
             'Remaining Balance': l.amount - reps,
-            'Payment Mode': l.paymentMode
+            'Payment Mode': (l.paymentMode === 'Split' || (l.cashAmount && l.gpayAmount))
+              ? `Split (Cash: ₹${l.cashAmount?.toLocaleString('en-IN')}, GPay: ₹${l.gpayAmount?.toLocaleString('en-IN')})`
+              : (l.paymentMode || 'Cash')
           };
         }),
         ...givenList.map(l => ({

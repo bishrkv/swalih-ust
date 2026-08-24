@@ -121,9 +121,13 @@ export default function Dashboard({
   const repaymentsCash = repayments
     .filter(r => r.paymentMode === 'Cash' || !r.paymentMode)
     .reduce((sum, r) => sum + r.amount, 0);
-  const loansCash = processedLoans
-    .filter(l => l.paymentMode === 'Cash' || !l.paymentMode)
-    .reduce((sum, l) => sum + l.amount, 0);
+  const loansCash = processedLoans.reduce((sum, l) => {
+    if (typeof l.cashAmount === 'number' && typeof l.gpayAmount === 'number') {
+      return sum + l.cashAmount;
+    }
+    if (l.paymentMode === 'Google Pay') return sum;
+    return sum + l.amount;
+  }, 0);
   const expenseCash = expense
     .filter(e => e.paymentMode === 'Cash' || !e.paymentMode)
     .reduce((sum, e) => sum + e.amount, 0);
@@ -149,9 +153,13 @@ export default function Dashboard({
   const repaymentsGPay = repayments
     .filter(r => r.paymentMode === 'Google Pay')
     .reduce((sum, r) => sum + r.amount, 0);
-  const loansGPay = processedLoans
-    .filter(l => l.paymentMode === 'Google Pay')
-    .reduce((sum, l) => sum + l.amount, 0);
+  const loansGPay = processedLoans.reduce((sum, l) => {
+    if (typeof l.cashAmount === 'number' && typeof l.gpayAmount === 'number') {
+      return sum + l.gpayAmount;
+    }
+    if (l.paymentMode === 'Google Pay') return sum + l.amount;
+    return sum;
+  }, 0);
   const expenseGPay = expense
     .filter(e => e.paymentMode === 'Google Pay')
     .reduce((sum, e) => sum + e.amount, 0);

@@ -29,7 +29,9 @@ export interface Loan {
   amount: number;
   reason?: string;
   notes: string;
-  paymentMode: 'Cash' | 'Google Pay';
+  paymentMode: 'Cash' | 'Google Pay' | 'Split';
+  cashAmount?: number;
+  gpayAmount?: number;
   createdAt: number;
   type?: 'given' | 'loan';
 }

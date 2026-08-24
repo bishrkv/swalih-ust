@@ -81,16 +81,71 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
   const totalGiven = totalRemainingBalance + totalRepaid;
   const remainingBalance = totalRemainingBalance;
 
-  // Active loans (amount > 0) sorted in descending order (newest first)
+  // Active loans (amount > 0) consolidated by beneficiary (single entry per member/beneficiary)
   const displayLoans = useMemo(() => {
-    return actualLoans
+    const groupMap = new Map<string, Loan & { associatedIds?: string[] }>();
+
+    actualLoans
       .filter((l) => l.amount > 0)
       .sort((a, b) => {
         const timeA = a.createdAt || (a.date ? new Date(a.date).getTime() : 0);
         const timeB = b.createdAt || (b.date ? new Date(b.date).getTime() : 0);
-        return timeB - timeA;
+        return timeA - timeB; // Process oldest first so latest date/info prevails
+      })
+      .forEach((l) => {
+        const key = (l.memberNo && !l.memberNo.startsWith('CUST-') ? l.memberNo : l.memberName.trim().toLowerCase()) || l.id;
+        
+        const lCash = l.cashAmount !== undefined
+          ? l.cashAmount
+          : (l.paymentMode === 'Google Pay' ? 0 : l.amount);
+        const lGPay = l.gpayAmount !== undefined
+          ? l.gpayAmount
+          : (l.paymentMode === 'Google Pay' ? l.amount : 0);
+
+        if (!groupMap.has(key)) {
+          const mode: 'Cash' | 'Google Pay' | 'Split' =
+            lCash > 0 && lGPay > 0 ? 'Split' : (lGPay > 0 ? 'Google Pay' : 'Cash');
+
+          groupMap.set(key, {
+            ...l,
+            cashAmount: lCash,
+            gpayAmount: lGPay,
+            paymentMode: mode,
+            associatedIds: [l.id]
+          });
+        } else {
+          const existing = groupMap.get(key)!;
+          const totalCash = (existing.cashAmount || 0) + lCash;
+          const totalGPay = (existing.gpayAmount || 0) + lGPay;
+          const totalAmt = existing.amount + l.amount;
+          const combinedMode: 'Cash' | 'Google Pay' | 'Split' =
+            totalCash > 0 && totalGPay > 0 ? 'Split' : (totalGPay > 0 ? 'Google Pay' : 'Cash');
+
+          groupMap.set(key, {
+            ...existing,
+            amount: totalAmt,
+            cashAmount: totalCash,
+            gpayAmount: totalGPay,
+            paymentMode: combinedMode,
+            date: l.date > existing.date ? l.date : existing.date, // latest date
+            notes: existing.notes ? `${existing.notes}\n${l.notes}` : l.notes,
+            associatedIds: [...(existing.associatedIds || []), l.id]
+          });
+        }
       });
+
+    return Array.from(groupMap.values()).sort((a, b) => {
+      const timeA = a.createdAt || (a.date ? new Date(a.date).getTime() : 0);
+      const timeB = b.createdAt || (b.date ? new Date(b.date).getTime() : 0);
+      return timeB - timeA; // Newest on top
+    });
   }, [actualLoans]);
+
+  // Check if there are unmerged duplicate records in Firestore that can be one-click synced
+  const hasUnmergedDuplicates = useMemo(() => {
+    const activeRaw = actualLoans.filter((l) => l.amount > 0);
+    return activeRaw.length > displayLoans.length;
+  }, [actualLoans, displayLoans]);
 
   // Repayments sorted in descending order (newest first)
   const sortedRepayments = useMemo(() => {
@@ -104,7 +159,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
   // Members with active/outstanding loans from the actualLoans list
   const loanBeneficiaries = useMemo(() => {
     const uniqueMap = new Map<string, string>(); // memberNo -> memberName
-    actualLoans.forEach((l) => {
+    displayLoans.forEach((l) => {
       if (l.amount > 0) {
         uniqueMap.set(l.memberNo, l.memberName);
       }
@@ -113,70 +168,97 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       memberNo,
       memberName
     }));
-  }, [actualLoans]);
+  }, [displayLoans]);
 
   const selectedMemberLoansSum = useMemo(() => {
     if (!repayMemberNo) return 0;
-    return actualLoans
+    return displayLoans
       .filter((l) => l.memberNo === repayMemberNo)
       .reduce((sum, l) => sum + l.amount, 0);
-  }, [repayMemberNo, actualLoans]);
+  }, [repayMemberNo, displayLoans]);
 
   // Selected beneficiary active loan check for modal banner
   const selectedBeneficiaryActiveLoan = useMemo(() => {
     if (isCustomMember) {
       const trimmed = customMemberName.trim().toLowerCase();
       if (!trimmed) return null;
-      const matchingLoans = actualLoans.filter(
+      const match = displayLoans.find(
         (l) => l.memberName.trim().toLowerCase() === trimmed && l.amount > 0
       );
-      if (matchingLoans.length === 0) return null;
-      const totalActive = matchingLoans.reduce((sum, l) => sum + l.amount, 0);
+      if (!match) return null;
       return {
-        memberName: matchingLoans[0].memberName,
-        amount: totalActive,
-        count: matchingLoans.length
+        memberName: match.memberName,
+        amount: match.amount,
+        cashAmount: match.cashAmount || 0,
+        gpayAmount: match.gpayAmount || 0,
+        paymentMode: match.paymentMode
       };
     }
     if (!memberNo) return null;
-    const matchingLoans = actualLoans.filter((l) => l.memberNo === memberNo && l.amount > 0);
-    if (matchingLoans.length === 0) return null;
-    const totalActive = matchingLoans.reduce((sum, l) => sum + l.amount, 0);
+    const match = displayLoans.find((l) => l.memberNo === memberNo && l.amount > 0);
+    if (!match) return null;
     return {
-      memberName: matchingLoans[0].memberName,
-      amount: totalActive,
-      count: matchingLoans.length
+      memberName: match.memberName,
+      amount: match.amount,
+      cashAmount: match.cashAmount || 0,
+      gpayAmount: match.gpayAmount || 0,
+      paymentMode: match.paymentMode
     };
-  }, [isCustomMember, customMemberName, memberNo, actualLoans]);
+  }, [isCustomMember, customMemberName, memberNo, displayLoans]);
 
   // List of active custom beneficiaries with outstanding balance (for autocomplete and quick selection)
   const activeCustomBeneficiaries = useMemo(() => {
-    const map = new Map<string, { memberNo: string; memberName: string; activeBalance: number }>();
-    actualLoans.forEach((l) => {
-      if (l.amount <= 0) return; // Exclude fully repaid records
-      const isRegular = members.some((m) => m.memberNo === l.memberNo);
-      if (!isRegular || l.memberNo.startsWith('CUST-')) {
-        const key = l.memberName.trim().toLowerCase();
-        if (key) {
-          if (!map.has(key)) {
-            map.set(key, {
-              memberNo: l.memberNo,
-              memberName: l.memberName.trim(),
-              activeBalance: l.amount
-            });
-          } else {
-            const existing = map.get(key)!;
-            existing.activeBalance += l.amount;
+    return displayLoans
+      .filter((l) => {
+        if (l.amount <= 0) return false;
+        const isRegular = members.some((m) => m.memberNo === l.memberNo);
+        return !isRegular || l.memberNo.startsWith('CUST-');
+      })
+      .map((l) => ({
+        memberNo: l.memberNo,
+        memberName: l.memberName.trim(),
+        activeBalance: l.amount
+      }))
+      .sort((a, b) => a.memberName.localeCompare(b.memberName));
+  }, [displayLoans, members]);
+
+  // One-click consolidation of multiple raw documents for same beneficiary into single documents
+  const handleConsolidateDuplicateRecords = async () => {
+    try {
+      for (const item of displayLoans) {
+        if (item.associatedIds && item.associatedIds.length > 1) {
+          // Keep primary ID, delete secondary IDs from Firestore
+          const primaryId = item.associatedIds[0];
+          const secondaryIds = item.associatedIds.slice(1);
+
+          const consolidatedObj: Loan = {
+            id: primaryId,
+            memberNo: item.memberNo,
+            memberName: item.memberName,
+            date: item.date,
+            amount: item.amount,
+            cashAmount: item.cashAmount || 0,
+            gpayAmount: item.gpayAmount || 0,
+            paymentMode: item.paymentMode,
+            notes: item.notes,
+            createdAt: item.createdAt || Date.now(),
+            type: 'loan'
+          };
+
+          await saveLoan(consolidatedObj);
+          for (const sId of secondaryIds) {
+            await deleteLoan(sId);
           }
         }
       }
-    });
-    return Array.from(map.values())
-      .filter((b) => b.activeBalance > 0)
-      .sort((a, b) => a.memberName.localeCompare(b.memberName));
-  }, [actualLoans, members]);
+      addToast('Consolidated separate loan entries into single records per beneficiary', 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to consolidate records', 'error');
+    }
+  };
 
-  // Save new loan disbursement (saves as distinct entry with its exact payment mode)
+  // Save new loan disbursement (combines into single unified entry for that beneficiary)
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -219,17 +301,96 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       finalMemberNo = memberNo;
     }
 
-    // Always create a new distinct loan entry to preserve exact payment mode (Cash vs Google Pay)
+    // Check if there are active loans for this member/beneficiary
+    const matchingActiveLoans = actualLoans.filter(
+      (l) =>
+        (l.memberNo === finalMemberNo ||
+          (isCustomMember && l.memberName.trim().toLowerCase() === selectedMemberName.toLowerCase())) &&
+        l.amount > 0
+    );
+
+    if (matchingActiveLoans.length > 0) {
+      // Consolidate into single active loan document
+      const primaryLoan = matchingActiveLoans[0];
+      const otherLoans = matchingActiveLoans.slice(1);
+
+      let prevCash = 0;
+      let prevGPay = 0;
+      let combinedNotes = '';
+
+      matchingActiveLoans.forEach((l) => {
+        const c = l.cashAmount !== undefined ? l.cashAmount : (l.paymentMode === 'Google Pay' ? 0 : l.amount);
+        const g = l.gpayAmount !== undefined ? l.gpayAmount : (l.paymentMode === 'Google Pay' ? l.amount : 0);
+        prevCash += c;
+        prevGPay += g;
+        if (l.notes) {
+          combinedNotes = combinedNotes ? `${combinedNotes}\n${l.notes}` : l.notes;
+        }
+      });
+
+      const newCash = prevCash + (loanPayMode === 'Cash' ? amt : 0);
+      const newGPay = prevGPay + (loanPayMode === 'Google Pay' ? amt : 0);
+      const newTotalAmount = newCash + newGPay;
+
+      const newPaymentMode: 'Cash' | 'Google Pay' | 'Split' =
+        newCash > 0 && newGPay > 0 ? 'Split' : (newGPay > 0 ? 'Google Pay' : 'Cash');
+
+      const newNote = `[${loanDate}] +₹${amt.toLocaleString('en-IN')} (${loanPayMode})${loanNotes.trim() ? `: ${loanNotes.trim()}` : ''}`;
+      combinedNotes = combinedNotes ? `${combinedNotes}\n${newNote}` : newNote;
+
+      const mergedLoanObj: Loan = {
+        ...primaryLoan,
+        memberNo: primaryLoan.memberNo || finalMemberNo,
+        memberName: selectedMemberName,
+        amount: newTotalAmount,
+        cashAmount: newCash,
+        gpayAmount: newGPay,
+        paymentMode: newPaymentMode,
+        date: loanDate, // Update to latest disbursement date
+        notes: combinedNotes,
+        type: 'loan'
+      };
+
+      try {
+        await saveLoan(mergedLoanObj);
+        // Clean up any old duplicate raw entries in Firestore
+        for (const oLoan of otherLoans) {
+          await deleteLoan(oLoan.id);
+        }
+
+        addToast(
+          `Added ₹${amt.toLocaleString('en-IN')} (${loanPayMode}) to ${selectedMemberName}. New Total Balance: ₹${newTotalAmount.toLocaleString('en-IN')}`,
+          'success'
+        );
+        setIsLoanModalOpen(false);
+
+        // Reset
+        setMemberNo('');
+        setCustomMemberName('');
+        setIsCustomMember(false);
+        setLoanAmount('');
+        setLoanNotes('');
+        setLoanPayMode('Google Pay');
+      } catch (err) {
+        console.error(err);
+        addToast('Failed to update loan entry', 'error');
+      }
+      return;
+    }
+
+    // No existing active loan - create fresh single loan entry
     const loanObj: Loan = {
       id: `loan_${Date.now()}`,
       memberNo: finalMemberNo,
       memberName: selectedMemberName,
       date: loanDate,
       amount: amt,
-      notes: loanNotes.trim() ? `[${loanDate}] ₹${amt.toLocaleString('en-IN')}: ${loanNotes.trim()}` : `[${loanDate}] ₹${amt.toLocaleString('en-IN')}`,
+      cashAmount: loanPayMode === 'Cash' ? amt : 0,
+      gpayAmount: loanPayMode === 'Google Pay' ? amt : 0,
+      notes: loanNotes.trim() ? `[${loanDate}] ₹${amt.toLocaleString('en-IN')} (${loanPayMode}): ${loanNotes.trim()}` : `[${loanDate}] ₹${amt.toLocaleString('en-IN')} (${loanPayMode})`,
       paymentMode: loanPayMode,
       createdAt: Date.now(),
-      type: 'loan' // Explicitly set to 'loan'
+      type: 'loan'
     };
 
     try {
@@ -251,11 +412,41 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
   };
 
   // Toggle payment mode on an existing loan entry
-  const handleTogglePaymentMode = async (loan: Loan) => {
-    const currentMode = loan.paymentMode || 'Cash';
-    const newMode: 'Cash' | 'Google Pay' = currentMode === 'Google Pay' ? 'Cash' : 'Google Pay';
+  const handleTogglePaymentMode = async (loan: Loan & { associatedIds?: string[] }) => {
+    let newMode: 'Cash' | 'Google Pay' | 'Split';
+    let newCash = 0;
+    let newGPay = 0;
+
+    if (loan.paymentMode === 'Split' || ((loan.cashAmount ?? 0) > 0 && (loan.gpayAmount ?? 0) > 0)) {
+      // Split -> pure Google Pay
+      newMode = 'Google Pay';
+      newGPay = loan.amount;
+      newCash = 0;
+    } else if (loan.paymentMode === 'Google Pay') {
+      // Google Pay -> pure Cash
+      newMode = 'Cash';
+      newCash = loan.amount;
+      newGPay = 0;
+    } else {
+      // Cash -> Google Pay
+      newMode = 'Google Pay';
+      newGPay = loan.amount;
+      newCash = 0;
+    }
+
     try {
-      await saveLoan({ ...loan, paymentMode: newMode });
+      await saveLoan({
+        ...loan,
+        paymentMode: newMode,
+        cashAmount: newCash,
+        gpayAmount: newGPay
+      });
+      // Also delete any other associated ids if present to keep 1 document
+      if (loan.associatedIds && loan.associatedIds.length > 1) {
+        for (const oId of loan.associatedIds.slice(1)) {
+          await deleteLoan(oId);
+        }
+      }
       addToast(`Switched payment mode for ₹${loan.amount.toLocaleString('en-IN')} loan to ${newMode}`, 'success');
     } catch (err) {
       console.error(err);
@@ -491,30 +682,43 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
         </div>
       </div>
 
-      {/* Subtab Selectors (Disbursed Loans vs Repayments logs) */}
-      <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1.5 rounded-2xl w-full max-w-sm">
-        <button
-          onClick={() => setActiveSubTab('given')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'given'
-              ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-          id="loans-tab-given"
-        >
-          Approved Loans
-        </button>
-        <button
-          onClick={() => setActiveSubTab('repayments')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'repayments'
-              ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-          id="loans-tab-repayments"
-        >
-          Repayments Log
-        </button>
+      {/* Subtab Selectors (Disbursed Loans vs Repayments logs) & Consolidation helper */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1.5 rounded-2xl w-full max-w-sm">
+          <button
+            onClick={() => setActiveSubTab('given')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeSubTab === 'given'
+                ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            id="loans-tab-given"
+          >
+            Approved Loans
+          </button>
+          <button
+            onClick={() => setActiveSubTab('repayments')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeSubTab === 'repayments'
+                ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            id="loans-tab-repayments"
+          >
+            Repayments Log
+          </button>
+        </div>
+
+        {hasUnmergedDuplicates && (
+          <button
+            onClick={handleConsolidateDuplicateRecords}
+            className="px-3 py-2 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
+            id="consolidate-duplicates-btn"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            Consolidate Separate Entries into 1 Record
+          </button>
+        )}
       </div>
 
       {/* Ledger Lists */}
@@ -569,22 +773,42 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                         )}
                       </td>
                       <td className="px-6 py-4 text-xs font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePaymentMode(loan)}
-                          title="Click to switch between Cash and Google Pay"
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
-                            (loan.paymentMode || 'Cash') === 'Google Pay'
-                              ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/60 hover:bg-blue-100'
-                              : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
-                          }`}
-                          id={`loan-paymode-toggle-${loan.id}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            (loan.paymentMode || 'Cash') === 'Google Pay' ? 'bg-blue-600' : 'bg-amber-600'
-                          }`} />
-                          {loan.paymentMode || 'Cash'}
-                        </button>
+                        {loan.paymentMode === 'Split' || ((loan.cashAmount ?? 0) > 0 && (loan.gpayAmount ?? 0) > 0) ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              {(loan.cashAmount || 0) > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 font-mono">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                                  Cash: ₹{(loan.cashAmount || 0).toLocaleString('en-IN')}
+                                </span>
+                              )}
+                              {(loan.gpayAmount || 0) > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 font-mono">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                                  GPay: ₹{(loan.gpayAmount || 0).toLocaleString('en-IN')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-zinc-400 font-medium">Combined Entry</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePaymentMode(loan)}
+                            title="Click to switch payment mode"
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                              (loan.paymentMode || 'Cash') === 'Google Pay'
+                                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/60 hover:bg-blue-100'
+                                : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
+                            }`}
+                            id={`loan-paymode-toggle-${loan.id}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              (loan.paymentMode || 'Cash') === 'Google Pay' ? 'bg-blue-600' : 'bg-amber-600'
+                            }`} />
+                            {loan.paymentMode || 'Cash'}
+                          </button>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         {editingLoanId === loan.id ? (
@@ -850,11 +1074,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                           Active Loan Found for {selectedBeneficiaryActiveLoan.memberName}: ₹{selectedBeneficiaryActiveLoan.amount.toLocaleString('en-IN')}
                         </p>
                         <p className="text-amber-700 dark:text-amber-400 text-[11px] mt-0.5">
-                          This new loan will be recorded separately with its selected payment mode ({loanPayMode}) and added to their liability (New Total Balance: ₹
-                          {(
-                            selectedBeneficiaryActiveLoan.amount + (parseFloat(loanAmount) || 0)
-                          ).toLocaleString('en-IN')}
-                          ).
+                          Adding this new amount ({loanPayMode}) will combine into <strong>one single entry</strong> for this beneficiary with a new total balance of <strong>₹{(selectedBeneficiaryActiveLoan.amount + (parseFloat(loanAmount) || 0)).toLocaleString('en-IN')}</strong>.
                         </p>
                       </div>
                     </div>
