@@ -79,8 +79,11 @@ export default function MonthlyCollection({
       return editBuffer[key];
     }
     const doc = yearCollectionsMap[key];
-    if (doc && doc.status === 'Paid' && doc.amount > 0) {
-      return doc.amount.toString();
+    if (doc && doc.amount !== undefined && doc.amount !== null) {
+      const num = typeof doc.amount === 'number' ? doc.amount : parseFloat(doc.amount);
+      if (!isNaN(num) && num > 0) {
+        return num.toString();
+      }
     }
     return '';
   };
@@ -109,6 +112,13 @@ export default function MonthlyCollection({
     // If never modified, skip
     if (rawVal === undefined) return;
 
+    // Immediately remove from buffer to prevent state locking
+    setEditBuffer((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
     const trimmed = rawVal.trim();
     const existingDoc = yearCollectionsMap[key];
 
@@ -117,21 +127,10 @@ export default function MonthlyCollection({
       if (existingDoc) {
         try {
           await deleteMonthlyCollection(existingDoc.id);
-          setEditBuffer((prev) => {
-            const next = { ...prev };
-            delete next[key];
-            return next;
-          });
         } catch (err) {
           console.error(err);
           addToast('Failed to clear entry', 'error');
         }
-      } else {
-        setEditBuffer((prev) => {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        });
       }
       return;
     }
@@ -156,11 +155,6 @@ export default function MonthlyCollection({
 
     try {
       await saveMonthlyCollection(colObj);
-      setEditBuffer((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
     } catch (err) {
       console.error(err);
       addToast('Auto-save failed', 'error');
@@ -238,8 +232,22 @@ export default function MonthlyCollection({
     });
   }, [members, yearCollectionsMap, searchTerm]);
 
+  // Flush all pending unsaved typing edits immediately
+  const flushDirtyCells = async () => {
+    const entries = Object.entries(editBuffer);
+    if (entries.length === 0) return;
+    for (const [key, val] of entries) {
+      const [mNo, mo] = key.split('_');
+      const memberObj = members.find((m) => m.memberNo === mNo);
+      if (memberObj) {
+        await handleSaveCell(memberObj, mo);
+      }
+    }
+  };
+
   // Month navigation handlers (auto wraps year when moving past April or May)
-  const handlePrevMonth = () => {
+  const handlePrevMonth = async () => {
+    await flushDirtyCells();
     const currentIndex = MONTHS.indexOf(selectedMonth);
     if (currentIndex > 0) {
       setSelectedMonth(MONTHS[currentIndex - 1]);
@@ -252,7 +260,8 @@ export default function MonthlyCollection({
     }
   };
 
-  const handleNextMonth = () => {
+  const handleNextMonth = async () => {
+    await flushDirtyCells();
     const currentIndex = MONTHS.indexOf(selectedMonth);
     if (currentIndex < MONTHS.length - 1) {
       setSelectedMonth(MONTHS[currentIndex + 1]);
@@ -373,7 +382,11 @@ export default function MonthlyCollection({
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Year:</span>
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              onChange={async (e) => {
+                const val = e.target.value;
+                await flushDirtyCells();
+                setSelectedYear(val);
+              }}
               className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-bold cursor-pointer"
               id="collection-year-selector"
             >
@@ -430,7 +443,11 @@ export default function MonthlyCollection({
 
                 <select
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    await flushDirtyCells();
+                    setSelectedMonth(val);
+                  }}
                   className="px-2 py-1 bg-transparent text-zinc-800 dark:text-zinc-100 focus:outline-none text-xs font-bold cursor-pointer"
                   id="collection-month-selector"
                 >
@@ -549,22 +566,22 @@ export default function MonthlyCollection({
                             <td key={month} className="px-1 py-1.5 text-center">
                               <div className="relative flex flex-col items-center gap-0.5">
                                 <input
+                                  key={`matrix-input-${member.memberNo}-${selectedYear}-${month}`}
                                   id={`matrix-cell-${member.memberNo}-${month}`}
-                                  type="number"
+                                  type="text"
                                   inputMode="numeric"
                                   value={cellVal}
                                   placeholder="—"
-                                  onFocus={(e) => e.currentTarget.select()}
-                                  onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
+                                  onFocus={(e) => e.target.select()}
                                   onChange={(e) => handleCellType(member.memberNo, month, e.target.value)}
                                   onBlur={() => handleSaveCell(member, month)}
                                   onKeyDown={(e) => handleKeyDown(e, member, monthIdx, memberIdx)}
-                                  className={`w-full text-center px-1.5 py-1.5 rounded-lg font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all border cursor-text ${
+                                  className={`w-full text-center px-1.5 py-1.5 rounded-lg font-mono font-black text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all border cursor-text placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-950 dark:text-white ${
                                     isDirty
-                                      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 text-amber-900 dark:text-amber-200 ring-1 ring-amber-400'
+                                      ? 'bg-white dark:bg-zinc-800 border-emerald-500 ring-1 ring-emerald-500'
                                       : hasValue
-                                      ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-extrabold'
-                                      : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-300'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700'
+                                      : 'bg-zinc-50 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700'
                                   }`}
                                 />
                                 {hasValue && (
@@ -684,13 +701,13 @@ export default function MonthlyCollection({
                         {/* Direct Amount Input */}
                         <td className="px-6 py-3.5">
                           <input
+                            key={`single-input-${member.memberNo}-${selectedYear}-${selectedMonth}`}
                             id={`single-cell-${member.memberNo}`}
-                            type="number"
+                            type="text"
                             inputMode="numeric"
                             value={cellVal}
                             placeholder="Type amount..."
-                            onFocus={(e) => e.currentTarget.select()}
-                            onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => handleCellType(member.memberNo, selectedMonth, e.target.value)}
                             onBlur={() => handleSaveCell(member, selectedMonth)}
                             onKeyDown={(e) => {
@@ -703,11 +720,11 @@ export default function MonthlyCollection({
                                 }
                               }
                             }}
-                            className={`w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border rounded-xl text-sm font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 ${
+                            className={`w-full px-3 py-2 bg-white dark:bg-zinc-800 border rounded-xl text-sm font-black font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 ${
                               isDirty
-                                ? 'border-amber-400 ring-1 ring-amber-400'
+                                ? 'border-emerald-500 ring-1 ring-emerald-500'
                                 : hasValue
-                                ? 'border-emerald-500/50 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300'
+                                ? 'border-emerald-400 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30'
                                 : 'border-zinc-200 dark:border-zinc-700'
                             }`}
                           />

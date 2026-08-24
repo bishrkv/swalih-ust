@@ -519,11 +519,11 @@ export default function F5W({
                             <td key={colKey} className="px-3 py-2.5 text-center">
                               <div className="flex flex-col items-center gap-1">
                                 <input
-                                  type="number"
+                                  key={`f5w-matrix-input-${member.memberNo}-${selectedYear}-${colKey}`}
+                                  type="text"
                                   inputMode="numeric"
                                   value={row[colKey]}
-                                  onFocus={(e) => e.currentTarget.select()}
-                                  onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
+                                  onFocus={(e) => e.target.select()}
                                   onChange={(e) => handleCellChange(member.memberNo, colKey, e.target.value)}
                                   onBlur={() => handleAutoSave(member, getRowValues(member.memberNo))}
                                   onKeyDown={(e) => {
@@ -536,10 +536,10 @@ export default function F5W({
                                       }
                                     }
                                   }}
-                                  className={`w-full px-2 py-1.5 border rounded-lg text-xs font-bold font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-text ${
+                                  className={`w-full px-2 py-1.5 border rounded-lg text-xs font-black font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-text text-zinc-950 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 ${
                                     hasVal
-                                      ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                                      : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700'
+                                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
                                   }`}
                                   placeholder="—"
                                   id={`f5w-input-${member.memberNo}-${colKey}`}
@@ -668,13 +668,13 @@ export default function F5W({
                         {/* Direct Amount Input for Selected Week */}
                         <td className="px-6 py-3.5">
                           <input
+                            key={`f5w-single-input-${member.memberNo}-${selectedYear}-${selectedWeek}`}
                             id={`f5w-single-cell-${member.memberNo}`}
-                            type="number"
+                            type="text"
                             inputMode="numeric"
                             value={val}
                             placeholder="Type amount..."
-                            onFocus={(e) => e.currentTarget.select()}
-                            onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => handleCellChange(member.memberNo, selectedWeek, e.target.value)}
                             onBlur={() => handleAutoSave(member, getRowValues(member.memberNo))}
                             onKeyDown={(e) => {
@@ -687,10 +687,10 @@ export default function F5W({
                                 }
                               }
                             }}
-                            className={`w-full px-3 py-2 border rounded-xl text-sm font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 cursor-text ${
+                            className={`w-full px-3 py-2 border rounded-xl text-sm font-black font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-950 dark:text-white cursor-text placeholder:text-zinc-400 dark:placeholder:text-zinc-500 ${
                               hasVal
-                                ? 'border-emerald-500/50 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300'
-                                : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                                ? 'border-emerald-400 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30'
+                                : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
                             }`}
                           />
                         </td>

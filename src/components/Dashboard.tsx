@@ -128,9 +128,16 @@ export default function Dashboard({
     .filter(e => e.paymentMode === 'Cash' || !e.paymentMode)
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const totalWithdrawn = drawings.reduce((sum, d) => sum + d.amount, 0);
+  // Drawings / Fund Transfers (Google Pay <-> Hand)
+  const gpayToHand = drawings
+    .filter(d => (d.fromAccount === 'Google Pay' || !d.fromAccount) && (d.toAccount === 'Hand' || !d.toAccount || d.toAccount === 'Cash in Hand'))
+    .reduce((sum, d) => sum + d.amount, 0);
 
-  const cashInHand = (collectionsCash + incomeCash + repaymentsCash + totalWithdrawn) - (loansCash + expenseCash);
+  const handToGpay = drawings
+    .filter(d => (d.fromAccount === 'Hand' || d.fromAccount === 'Cash in Hand') && d.toAccount === 'Google Pay')
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  const cashInHand = (collectionsCash + incomeCash + repaymentsCash + gpayToHand - handToGpay) - (loansCash + expenseCash);
 
   // Google Pay calculations
   const collectionsGPay = collections
@@ -149,7 +156,7 @@ export default function Dashboard({
     .filter(e => e.paymentMode === 'Google Pay')
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const googlePayBalance = (collectionsGPay + incomeGPay + repaymentsGPay) - (loansGPay + expenseGPay + totalWithdrawn);
+  const googlePayBalance = (collectionsGPay + incomeGPay + repaymentsGPay + handToGpay - gpayToHand) - (loansGPay + expenseGPay);
 
   // Formatted date and time
   const formattedDate = time.toLocaleDateString('en-US', {

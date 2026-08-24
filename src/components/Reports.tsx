@@ -125,15 +125,22 @@ export default function Reports({
     const givCash = processedLoans.filter(l => l.paymentMode === 'Cash' || !l.paymentMode).reduce((sum, l) => sum + l.amount, 0);
     const expCash = expense.filter(e => e.paymentMode === 'Cash' || !e.paymentMode).reduce((sum, e) => sum + e.amount, 0);
     
-    const totalWithdrawn = drawings.reduce((sum, d) => sum + d.amount, 0);
-    const cashInHand = (collCash + incCash + repCash + totalWithdrawn) - (givCash + expCash);
+    // Drawings / Transfers (Google Pay <-> Hand)
+    const gpayToHand = drawings
+      .filter(d => (d.fromAccount === 'Google Pay' || !d.fromAccount) && (d.toAccount === 'Hand' || !d.toAccount || d.toAccount === 'Cash in Hand'))
+      .reduce((sum, d) => sum + d.amount, 0);
+    const handToGpay = drawings
+      .filter(d => (d.fromAccount === 'Hand' || d.fromAccount === 'Cash in Hand') && d.toAccount === 'Google Pay')
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    const cashInHand = (collCash + incCash + repCash + gpayToHand - handToGpay) - (givCash + expCash);
 
     const collGPay = collections.filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay').reduce((sum, c) => sum + c.amount, 0) + f5wGPayTotal;
     const incGPay = income.filter(i => i.paymentMode === 'Google Pay').reduce((sum, i) => sum + i.amount, 0);
     const repGPay = repayments.filter(r => r.paymentMode === 'Google Pay').reduce((sum, r) => sum + r.amount, 0);
     const givGPay = processedLoans.filter(l => l.paymentMode === 'Google Pay').reduce((sum, l) => sum + l.amount, 0);
     const expGPay = expense.filter(e => e.paymentMode === 'Google Pay').reduce((sum, e) => sum + e.amount, 0);
-    const gpayBalance = (collGPay + incGPay + repGPay) - (givGPay + expGPay + totalWithdrawn);
+    const gpayBalance = (collGPay + incGPay + repGPay + handToGpay - gpayToHand) - (givGPay + expGPay);
 
     return {
       totalColl,
