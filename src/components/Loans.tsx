@@ -124,17 +124,54 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
 
   // Selected beneficiary active loan check for modal banner
   const selectedBeneficiaryActiveLoan = useMemo(() => {
-    const targetNo = isCustomMember ? '' : memberNo;
-    if (!targetNo) return null;
-    return actualLoans.find((l) => l.memberNo === targetNo && l.amount > 0) || null;
-  }, [isCustomMember, memberNo, actualLoans]);
+    if (isCustomMember) {
+      const trimmed = customMemberName.trim().toLowerCase();
+      if (!trimmed) return null;
+      return actualLoans.find(
+        (l) => l.memberName.trim().toLowerCase() === trimmed && l.amount > 0
+      ) || null;
+    }
+    if (!memberNo) return null;
+    return actualLoans.find((l) => l.memberNo === memberNo && l.amount > 0) || null;
+  }, [isCustomMember, customMemberName, memberNo, actualLoans]);
 
-  // Save new loan disbursement (combines into single active entry if member already has an active loan)
+  // List of all past unique custom beneficiaries (for autocomplete and quick selection)
+  const pastCustomBeneficiaries = useMemo(() => {
+    const map = new Map<string, { memberNo: string; memberName: string; activeBalance: number }>();
+    actualLoans.forEach((l) => {
+      const isRegular = members.some((m) => m.memberNo === l.memberNo);
+      if (!isRegular || l.memberNo.startsWith('CUST-')) {
+        const key = l.memberName.trim().toLowerCase();
+        if (key) {
+          if (!map.has(key)) {
+            map.set(key, {
+              memberNo: l.memberNo,
+              memberName: l.memberName.trim(),
+              activeBalance: l.amount > 0 ? l.amount : 0
+            });
+          } else {
+            const existing = map.get(key)!;
+            if (l.amount > 0) {
+              existing.activeBalance += l.amount;
+            }
+          }
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.memberName.localeCompare(b.memberName));
+  }, [actualLoans, members]);
+
+  // Recognized past custom beneficiary without active loan
+  const recognizedPastBeneficiary = useMemo(() => {
+    if (!isCustomMember) return null;
+    const trimmed = customMemberName.trim().toLowerCase();
+    if (!trimmed) return null;
+    return pastCustomBeneficiaries.find((p) => p.memberName.toLowerCase() === trimmed) || null;
+  }, [isCustomMember, customMemberName, pastCustomBeneficiaries]);
+
+  // Save new loan disbursement (combines into single active entry if member/custom beneficiary already has an active loan)
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const finalMemberNo = isCustomMember ? `CUST-${Date.now().toString().slice(-6)}` : memberNo;
-    const finalMemberName = isCustomMember ? customMemberName.trim() : '';
 
     if (isCustomMember) {
       if (!customMemberName.trim() || !loanAmount) {
@@ -154,18 +191,33 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
       return;
     }
 
+    let finalMemberNo = '';
     let selectedMemberName = '';
+
     if (isCustomMember) {
-      selectedMemberName = finalMemberName;
+      selectedMemberName = customMemberName.trim();
+      // Look for existing past or active custom beneficiary with same name
+      const existingCustom = actualLoans.find(
+        (l) => l.memberName.trim().toLowerCase() === selectedMemberName.toLowerCase()
+      );
+      if (existingCustom) {
+        finalMemberNo = existingCustom.memberNo;
+      } else {
+        finalMemberNo = `CUST-${Date.now().toString().slice(-6)}`;
+      }
     } else {
       const selectedMember = members.find((m) => m.memberNo === memberNo);
       if (!selectedMember) return;
       selectedMemberName = selectedMember.memberName;
+      finalMemberNo = memberNo;
     }
 
-    // Check if there is an existing active loan for this member
+    // Check if there is an existing active loan for this member / custom beneficiary
     const existingActiveLoan = actualLoans.find(
-      (l) => l.memberNo === finalMemberNo && l.amount > 0
+      (l) =>
+        (l.memberNo === finalMemberNo ||
+          (isCustomMember && l.memberName.trim().toLowerCase() === selectedMemberName.toLowerCase())) &&
+        l.amount > 0
     );
 
     if (existingActiveLoan) {
@@ -179,6 +231,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
 
       const mergedLoanObj: Loan = {
         ...existingActiveLoan,
+        memberNo: existingActiveLoan.memberNo || finalMemberNo,
         amount: newTotalAmount,
         date: loanDate, // Update to latest disbursement date
         notes: combinedNotes,
@@ -686,36 +739,125 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
               {/* Form */}
               <form onSubmit={handleSaveLoan} className="p-6 space-y-4">
                 {/* Select Member */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center mb-1">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
                     <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
                       Beneficiary *
                     </label>
-                    <label className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 font-bold cursor-pointer hover:underline selection:bg-transparent">
-                      <input
-                        type="checkbox"
-                        checked={isCustomMember}
-                        onChange={(e) => {
-                          setIsCustomMember(e.target.checked);
-                          setMemberNo('');
+                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomMember(false);
                           setCustomMemberName('');
                         }}
-                        className="rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                      />
-                      Type Custom Name
-                    </label>
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                          !isCustomMember
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                        }`}
+                        id="loan-select-mode-member"
+                      >
+                        Registered Member
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomMember(true);
+                          setMemberNo('');
+                        }}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                          isCustomMember
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                        }`}
+                        id="loan-select-mode-custom"
+                      >
+                        Custom Name
+                      </button>
+                    </div>
                   </div>
                   
                   {isCustomMember ? (
-                    <input
-                      type="text"
-                      required
-                      value={customMemberName}
-                      onChange={(e) => setCustomMemberName(e.target.value)}
-                      placeholder="Type beneficiary name here..."
-                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium text-sm"
-                      id="loan-form-member-custom-input"
-                    />
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          list="past-custom-names-datalist"
+                          value={customMemberName}
+                          onChange={(e) => setCustomMemberName(e.target.value)}
+                          placeholder="Type or select custom beneficiary name..."
+                          className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium text-sm"
+                          id="loan-form-member-custom-input"
+                          autoComplete="off"
+                        />
+                        <datalist id="past-custom-names-datalist">
+                          {pastCustomBeneficiaries.map((b) => (
+                            <option
+                              key={b.memberNo}
+                              value={b.memberName}
+                            >
+                              {b.activeBalance > 0
+                                ? `[Active Loan: ₹${b.activeBalance.toLocaleString('en-IN')}]`
+                                : `[Repaid] (ID: ${b.memberNo})`}
+                            </option>
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Quick-select chips from past custom beneficiaries */}
+                      {pastCustomBeneficiaries.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
+                            Previously Given Custom Names:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                            {pastCustomBeneficiaries.map((b) => {
+                              const isSelected = customMemberName.trim().toLowerCase() === b.memberName.toLowerCase();
+                              return (
+                                <button
+                                  key={b.memberNo}
+                                  type="button"
+                                  onClick={() => setCustomMemberName(b.memberName)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
+                                  }`}
+                                  id={`quick-select-custom-${b.memberNo}`}
+                                >
+                                  <span>{b.memberName}</span>
+                                  {b.activeBalance > 0 ? (
+                                    <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
+                                      isSelected ? 'bg-amber-800 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                                    }`}>
+                                      ₹{b.activeBalance.toLocaleString('en-IN')}
+                                    </span>
+                                  ) : (
+                                    <span className={`text-[10px] px-1 py-0.2 rounded ${
+                                      isSelected ? 'bg-amber-800 text-white' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    }`}>
+                                      Repaid
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Status indicator if recognized past beneficiary with 0 balance */}
+                      {!selectedBeneficiaryActiveLoan && recognizedPastBeneficiary && (
+                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-xs flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                          <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span>
+                            Recognized past beneficiary <strong>{recognizedPastBeneficiary.memberName}</strong> (ID: {recognizedPastBeneficiary.memberNo}). Previous loans were fully settled.
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <select
                       required
@@ -739,10 +881,10 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
                       <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <div>
                         <p className="font-bold text-amber-900 dark:text-amber-200">
-                          Active Loan Found: ₹{selectedBeneficiaryActiveLoan.amount.toLocaleString('en-IN')}
+                          Active Loan Found for {selectedBeneficiaryActiveLoan.memberName}: ₹{selectedBeneficiaryActiveLoan.amount.toLocaleString('en-IN')}
                         </p>
                         <p className="text-amber-700 dark:text-amber-400 text-[11px] mt-0.5">
-                          New amount will be added into this single entry (Combined Balance: ₹
+                          New amount will be merged into this existing record (New Combined Balance: ₹
                           {(
                             selectedBeneficiaryActiveLoan.amount + (parseFloat(loanAmount) || 0)
                           ).toLocaleString('en-IN')}
