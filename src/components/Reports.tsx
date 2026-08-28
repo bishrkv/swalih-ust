@@ -11,10 +11,12 @@ import {
   DollarSign,
   TrendingUp,
   Bookmark,
-  TrendingDown
+  TrendingDown,
+  AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, Drawing, F5WCollection } from '../types';
+import { calculateFinancials } from '../utils/finance';
 
 interface ReportsProps {
   members: Member[];
@@ -76,93 +78,30 @@ export default function Reports({
 
   // 1. Balance Report data
   const balanceSheetData = useMemo(() => {
-    // F5W Collection paid total
-    const f5wPaidTotal = f5wData.reduce((sum, f) => {
-      return sum + (f.col1 || 0) + (f.col2 || 0) + (f.col3 || 0) + (f.col4 || 0) + (f.col5 || 0);
-    }, 0);
-
-    // F5W Collection paid via Google Pay (defaults to GPay if colMode is not 'Cash')
-    const f5wGPayTotal = f5wData.reduce((sum, f) => {
-      const v1 = (f.col1Mode === 'Cash') ? 0 : (f.col1 || 0);
-      const v2 = (f.col2Mode === 'Cash') ? 0 : (f.col2 || 0);
-      const v3 = (f.col3Mode === 'Cash') ? 0 : (f.col3 || 0);
-      const v4 = (f.col4Mode === 'Cash') ? 0 : (f.col4 || 0);
-      const v5 = (f.col5Mode === 'Cash') ? 0 : (f.col5 || 0);
-      return sum + v1 + v2 + v3 + v4 + v5;
-    }, 0);
-
-    // F5W Collection paid via Cash
-    const f5wCashTotal = f5wData.reduce((sum, f) => {
-      const v1 = (f.col1Mode === 'Cash') ? (f.col1 || 0) : 0;
-      const v2 = (f.col2Mode === 'Cash') ? (f.col2 || 0) : 0;
-      const v3 = (f.col3Mode === 'Cash') ? (f.col3 || 0) : 0;
-      const v4 = (f.col4Mode === 'Cash') ? (f.col4 || 0) : 0;
-      const v5 = (f.col5Mode === 'Cash') ? (f.col5 || 0) : 0;
-      return sum + v1 + v2 + v3 + v4 + v5;
-    }, 0);
-
-    // Process loans with original amounts for accurate cash flow calculations
-    const processedLoans = loans.map(l => {
-      const repaymentsForLoan = repayments.filter(r => r.loanId === l.id);
-      const totalRepaidForLoan = repaymentsForLoan.reduce((sum, r) => sum + r.amount, 0);
-      return {
-        ...l,
-        amount: l.amount + totalRepaidForLoan
-      };
+    const fin = calculateFinancials({
+      collections,
+      loans,
+      repayments,
+      income,
+      expense,
+      drawings,
+      f5wData
     });
 
-    const totalColl = collections.filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.amount, 0) + f5wPaidTotal;
-    const totalInc = income.reduce((sum, i) => sum + i.amount, 0);
-    const totalRep = repayments.reduce((sum, r) => sum + r.amount, 0);
-    const totalGiv = processedLoans.reduce((sum, l) => sum + l.amount, 0);
-    const totalExp = expense.reduce((sum, e) => sum + e.amount, 0);
-    const netBal = (totalColl + totalInc + totalRep) - (totalGiv + totalExp);
-
-    // Cash vs GPay
-    const collCash = collections.filter(c => c.status === 'Paid' && (c.paymentMode === 'Cash' || !c.paymentMode)).reduce((sum, c) => sum + c.amount, 0) + f5wCashTotal;
-    const incCash = income.filter(i => i.paymentMode === 'Cash' || !i.paymentMode).reduce((sum, i) => sum + i.amount, 0);
-    const repCash = repayments.filter(r => r.paymentMode === 'Cash' || !r.paymentMode).reduce((sum, r) => sum + r.amount, 0);
-    const givCash = processedLoans.reduce((sum, l) => {
-      if (typeof l.cashAmount === 'number' && typeof l.gpayAmount === 'number') {
-        return sum + l.cashAmount;
-      }
-      if (l.paymentMode === 'Google Pay') return sum;
-      return sum + l.amount;
-    }, 0);
-    const expCash = expense.filter(e => e.paymentMode === 'Cash' || !e.paymentMode).reduce((sum, e) => sum + e.amount, 0);
-    
-    // Drawings / Transfers (Google Pay <-> Hand)
-    const gpayToHand = drawings
-      .filter(d => (d.fromAccount === 'Google Pay' || !d.fromAccount) && (d.toAccount === 'Hand' || !d.toAccount || d.toAccount === 'Cash in Hand'))
-      .reduce((sum, d) => sum + d.amount, 0);
-    const handToGpay = drawings
-      .filter(d => (d.fromAccount === 'Hand' || d.fromAccount === 'Cash in Hand') && d.toAccount === 'Google Pay')
-      .reduce((sum, d) => sum + d.amount, 0);
-
-    const cashInHand = (collCash + incCash + repCash + gpayToHand - handToGpay) - (givCash + expCash);
-
-    const collGPay = collections.filter(c => c.status === 'Paid' && c.paymentMode === 'Google Pay').reduce((sum, c) => sum + c.amount, 0) + f5wGPayTotal;
-    const incGPay = income.filter(i => i.paymentMode === 'Google Pay').reduce((sum, i) => sum + i.amount, 0);
-    const repGPay = repayments.filter(r => r.paymentMode === 'Google Pay').reduce((sum, r) => sum + r.amount, 0);
-    const givGPay = processedLoans.reduce((sum, l) => {
-      if (typeof l.cashAmount === 'number' && typeof l.gpayAmount === 'number') {
-        return sum + l.gpayAmount;
-      }
-      if (l.paymentMode === 'Google Pay') return sum + l.amount;
-      return sum;
-    }, 0);
-    const expGPay = expense.filter(e => e.paymentMode === 'Google Pay').reduce((sum, e) => sum + e.amount, 0);
-    const gpayBalance = (collGPay + incGPay + repGPay + handToGpay - gpayToHand) - (givGPay + expGPay);
-
     return {
-      totalColl,
-      totalInc,
-      totalRep,
-      totalGiv,
-      totalExp,
-      netBal,
-      cashInHand,
-      gpayBalance
+      grandTotalFund: fin.grandTotalFund,
+      monthlyCollTotal: fin.monthlyCollTotal,
+      f5wPaidTotal: fin.f5wPaidTotal,
+      totalLoansGiven: fin.totalLoansGiven,
+      totalRepayments: fin.totalLoanRepayments,
+      remainingLoanBalance: fin.remainingLoanBalance,
+      totalGivenAmount: fin.totalGivenAmount,
+      totalInc: fin.totalIncome,
+      totalExp: fin.totalExpense,
+      netBal: fin.totalBalance,
+      cashInHand: fin.cashInHand,
+      gpayBalance: fin.googlePayBalance,
+      sumOfCashAndGPay: fin.sumOfCashAndGPay
     };
   }, [collections, income, repayments, loans, expense, drawings, f5wData]);
 
@@ -208,20 +147,19 @@ export default function Reports({
 
     if (selectedReport === 'balance') {
       sheetData = [
-        { 'Account Ledger': 'Total Members Collections Paid', 'Amount (INR)': balanceSheetData.totalColl },
-        { 'Account Ledger': 'Total Miscellaneous Income', 'Amount (INR)': balanceSheetData.totalInc },
-        { 'Account Ledger': 'Total Loan Repayments Received', 'Amount (INR)': balanceSheetData.totalRep },
-        { 'Account Ledger': 'Total Loans Given (Disbursed)', 'Amount (INR)': balanceSheetData.totalGiv },
-        { 'Account Ledger': 'Total Expenses Incurred', 'Amount (INR)': balanceSheetData.totalExp },
+        { 'Account Ledger': '1. Grand Total Fund (Monthly + F5W Paid)', 'Amount (INR)': balanceSheetData.grandTotalFund },
+        { 'Account Ledger': '2. Loan Total (Active Remaining Loans)', 'Amount (INR)': -balanceSheetData.remainingLoanBalance },
+        { 'Account Ledger': '3. Given Amount Total (Marriage Aid & Grants)', 'Amount (INR)': -balanceSheetData.totalGivenAmount },
         { 'Account Ledger': '------------------', 'Amount (INR)': '--------' },
-        { 'Account Ledger': 'Net Fund Balance', 'Amount (INR)': balanceSheetData.netBal },
-        { 'Account Ledger': 'Physical Cash in Hand', 'Amount (INR)': balanceSheetData.cashInHand },
-        { 'Account Ledger': 'Google Pay Bank Balance', 'Amount (INR)': balanceSheetData.gpayBalance }
+        { 'Account Ledger': 'Total Balance (Grand Total - Loan Total - Given Amount)', 'Amount (INR)': balanceSheetData.netBal },
+        { 'Account Ledger': 'Cash in Hand Balance', 'Amount (INR)': balanceSheetData.cashInHand },
+        { 'Account Ledger': 'Google Pay Bank Balance', 'Amount (INR)': balanceSheetData.gpayBalance },
+        { 'Account Ledger': 'Sum of Cash & Google Pay', 'Amount (INR)': balanceSheetData.sumOfCashAndGPay }
       ];
     } else if (selectedReport === 'member') {
       sheetData = members.map(m => {
         const mPaid = collections.filter(c => c.memberNo === m.memberNo && c.status === 'Paid').reduce((sum, c) => sum + c.amount, 0);
-        const mLoans = loans.filter(l => l.memberNo === m.memberNo).reduce((sum, l) => sum + l.amount, 0);
+        const mLoansRemaining = loans.filter(l => l.memberNo === m.memberNo && (l.type === 'loan' || !l.type)).reduce((sum, l) => sum + (l.amount || 0), 0);
         const mRepaid = repayments.filter(r => r.memberNo === m.memberNo).reduce((sum, r) => sum + r.amount, 0);
         return {
           'Member Number': m.memberNo,
@@ -229,8 +167,8 @@ export default function Reports({
           'Phone': m.phone,
           'Status': m.status,
           'Total Paid Collection (INR)': mPaid,
-          'Total Loans Taken (INR)': mLoans,
-          'Active Loan Balance (INR)': mLoans - mRepaid
+          'Total Loans Disbursed (INR)': mLoansRemaining + mRepaid,
+          'Active Loan Balance (INR)': mLoansRemaining
         };
       });
     } else if (selectedReport === 'loan') {
@@ -245,9 +183,9 @@ export default function Reports({
             'Disbursement Date': l.date,
             'Member No': l.memberNo,
             'Member Name': l.memberName,
-            'Principal Amount': l.amount,
+            'Original Disbursed Amount': l.amount + reps,
             'Total Repaid to Date': reps,
-            'Remaining Balance': l.amount - reps,
+            'Remaining Balance': l.amount,
             'Payment Mode': (l.paymentMode === 'Split' || (l.cashAmount && l.gpayAmount))
               ? `Split (Cash: ₹${l.cashAmount?.toLocaleString('en-IN')}, GPay: ₹${l.gpayAmount?.toLocaleString('en-IN')})`
               : (l.paymentMode || 'Cash')
@@ -258,7 +196,7 @@ export default function Reports({
           'Disbursement Date': l.date,
           'Member No': l.memberNo,
           'Member Name': l.memberName,
-          'Principal Amount': l.amount,
+          'Original Disbursed Amount': l.amount,
           'Total Repaid to Date': 0,
           'Remaining Balance': 0,
           'Payment Mode': l.paymentMode
@@ -424,55 +362,71 @@ export default function Reports({
             <div className="space-y-6">
               <div className="border-b border-zinc-100 dark:border-zinc-800 pb-4">
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">General Balance Sheet</h2>
-                <p className="text-xs text-zinc-400 mt-1">Summary audit of all physical and digital fund ledgers</p>
+                <p className="text-xs text-zinc-400 mt-1">Audit of Total Balance = Cash in Hand + Google Pay = Grand Total − Loan Total − Given Amount Total</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Ledger Assets table */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Ledger 1: Grand Total Fund */}
                 <div className="space-y-2 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden">
                   <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800 text-xs font-bold uppercase text-zinc-400 tracking-wider">
-                    Receipts & Inflow
+                    1. Fund Inflows
                   </div>
-                  <div className="p-4 space-y-3.5 text-sm font-medium">
+                  <div className="p-4 space-y-3 text-sm font-medium">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Members Collections Paid</span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                        ₹{balanceSheetData.totalColl.toLocaleString('en-IN')}
+                      <span className="text-zinc-500">Grand Total Fund</span>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">
+                        ₹{balanceSheetData.grandTotalFund.toLocaleString('en-IN')}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Sadaqah & Donations</span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                        ₹{balanceSheetData.totalInc.toLocaleString('en-IN')}
-                      </span>
+                    <div className="flex justify-between text-xs text-zinc-400 pl-3">
+                      <span>• Monthly Collections</span>
+                      <span>₹{balanceSheetData.monthlyCollTotal.toLocaleString('en-IN')}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Loan Repayments Received</span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                        ₹{balanceSheetData.totalRep.toLocaleString('en-IN')}
-                      </span>
+                    <div className="flex justify-between text-xs text-zinc-400 pl-3">
+                      <span>• F5W Weekly Collections</span>
+                      <span>₹{balanceSheetData.f5wPaidTotal.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Ledger Debits table */}
+                {/* Ledger 2: Loan Total */}
                 <div className="space-y-2 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden">
                   <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800 text-xs font-bold uppercase text-zinc-400 tracking-wider">
-                    Debits & Outflow
+                    2. Loan Outflows
                   </div>
-                  <div className="p-4 space-y-3.5 text-sm font-medium">
+                  <div className="p-4 space-y-3 text-sm font-medium">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Marriage Aid (Disbursed Loans)</span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                        -₹{balanceSheetData.totalGiv.toLocaleString('en-IN')}
+                      <span className="text-zinc-500">Loan Total (Active)</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+                        -₹{balanceSheetData.remainingLoanBalance.toLocaleString('en-IN')}
                       </span>
                     </div>
+                    <div className="flex justify-between text-xs text-zinc-400 pl-3">
+                      <span>• Total Disbursed</span>
+                      <span>₹{balanceSheetData.totalLoansGiven.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-zinc-400 pl-3">
+                      <span>• Repayments Received</span>
+                      <span>₹{balanceSheetData.totalRepayments.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ledger 3: Given Amount Total */}
+                <div className="space-y-2 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                  <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800 text-xs font-bold uppercase text-zinc-400 tracking-wider">
+                    3. Given Grants
+                  </div>
+                  <div className="p-4 space-y-3 text-sm font-medium">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Administrative / Stationery Costs</span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                        -₹{balanceSheetData.totalExp.toLocaleString('en-IN')}
+                      <span className="text-zinc-500">Given Amount Total</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400 font-mono">
+                        -₹{balanceSheetData.totalGivenAmount.toLocaleString('en-IN')}
                       </span>
                     </div>
+                    <p className="text-[11px] text-zinc-400 pl-3">
+                      Non-refundable marriage aid & charity grants
+                    </p>
                   </div>
                 </div>
               </div>
@@ -480,13 +434,18 @@ export default function Reports({
               {/* Net Balance Sheet */}
               <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 space-y-4">
                 <div className="flex justify-between items-center text-emerald-800 dark:text-emerald-300">
-                  <span className="font-bold">Total Net Balance</span>
+                  <div>
+                    <span className="font-bold text-base block">Total Balance</span>
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-normal font-mono">
+                      Grand Total (₹{balanceSheetData.grandTotalFund.toLocaleString('en-IN')}) − Loan Total (₹{balanceSheetData.remainingLoanBalance.toLocaleString('en-IN')}) − Given Amount Total (₹{balanceSheetData.totalGivenAmount.toLocaleString('en-IN')})
+                    </span>
+                  </div>
                   <span className="text-2xl font-black font-mono">
                     ₹{balanceSheetData.netBal.toLocaleString('en-IN')}
                   </span>
                 </div>
 
-                <div className="border-t border-emerald-200/50 dark:border-emerald-900/40 pt-4 grid grid-cols-2 gap-4 text-xs font-bold text-zinc-500">
+                <div className="border-t border-emerald-200/50 dark:border-emerald-900/40 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs font-bold text-zinc-500">
                   <div>
                     <span className="block text-[10px] uppercase text-zinc-400">Cash In Hand</span>
                     <span className="text-sm text-zinc-800 dark:text-zinc-200 font-bold font-mono">
@@ -494,9 +453,15 @@ export default function Reports({
                     </span>
                   </div>
                   <div>
-                    <span className="block text-[10px] uppercase text-zinc-400">Google Pay</span>
+                    <span className="block text-[10px] uppercase text-zinc-400">Google Pay (Bank)</span>
                     <span className="text-sm text-zinc-800 dark:text-zinc-200 font-bold font-mono">
                       ₹{balanceSheetData.gpayBalance.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase text-zinc-400">Cash + Google Pay Total</span>
+                    <span className="text-sm text-emerald-700 dark:text-emerald-300 font-bold font-mono">
+                      ₹{balanceSheetData.sumOfCashAndGPay.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>

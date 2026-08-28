@@ -332,6 +332,8 @@ export default function App() {
               members={members}
               collections={collections}
               f5wData={f5wData}
+              loans={loans}
+              repayments={repayments}
             />
           )}
 

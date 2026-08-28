@@ -14,18 +14,22 @@ import {
   Percent
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Member, MonthlyCollection, F5WCollection } from '../types';
+import { Member, MonthlyCollection, F5WCollection, Loan, LoanRepayment } from '../types';
 
 interface GrandTotalProps {
   members: Member[];
   collections: MonthlyCollection[];
   f5wData: F5WCollection[];
+  loans?: Loan[];
+  repayments?: LoanRepayment[];
 }
 
 export default function GrandTotal({
   members,
   collections,
-  f5wData
+  f5wData,
+  loans = [],
+  repayments = []
 }: GrandTotalProps) {
   const [selectedYear, setSelectedYear] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -166,6 +170,20 @@ export default function GrandTotal({
 
   const f5wPct = 100 - monthlyPct;
 
+  // Total Balance Calculation
+  const totalBalanceInfo = useMemo(() => {
+    const actualLoans = loans.filter((l) => l.type === 'loan' || !l.type);
+    const remLoans = actualLoans.reduce((sum, l) => sum + Math.max(0, l.amount || 0), 0);
+    const givenGrants = loans.filter((l) => l.type === 'given').reduce((sum, l) => sum + Math.max(0, l.amount || 0), 0);
+    const totBalance = consolidatedMetrics.grandTotal - remLoans - givenGrants;
+
+    return {
+      remainingLoans: remLoans,
+      totalGiven: givenGrants,
+      totalBalance: totBalance
+    };
+  }, [consolidatedMetrics.grandTotal, loans]);
+
   return (
     <div className="space-y-6">
       {/* Printable Header - hidden on screen, visible on print */}
@@ -286,6 +304,48 @@ export default function GrandTotal({
             className="h-full bg-amber-500 transition-all duration-500" 
             title={`F5W Collections: ₹${consolidatedMetrics.f5wTotal}`}
           />
+        </div>
+      </div>
+
+      {/* Financial Formula Reconciliation Card */}
+      <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200/60 dark:border-zinc-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-mono">
+              Total Balance Formula: Grand Total Fund − Loan Total − Given Amount Total
+            </h3>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40">
+            Cash in Hand + Google Pay
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 bg-white dark:bg-zinc-800/60 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <span className="text-zinc-400 text-[10px] uppercase font-bold block">1. Grand Fund</span>
+            <span className="font-bold text-sm text-zinc-900 dark:text-zinc-100 font-mono">
+              ₹{consolidatedMetrics.grandTotal.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="p-3 bg-white dark:bg-zinc-800/60 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <span className="text-zinc-400 text-[10px] uppercase font-bold block">2. Loan Total</span>
+            <span className="font-bold text-sm text-amber-600 dark:text-amber-400 font-mono">
+              −₹{totalBalanceInfo.remainingLoans.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="p-3 bg-white dark:bg-zinc-800/60 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <span className="text-zinc-400 text-[10px] uppercase font-bold block">3. Given Amount Total</span>
+            <span className="font-bold text-sm text-rose-600 dark:text-rose-400 font-mono">
+              −₹{totalBalanceInfo.totalGiven.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/60 dark:border-emerald-900/30">
+            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] uppercase font-bold block">= Total Balance</span>
+            <span className="font-bold text-sm text-emerald-800 dark:text-emerald-300 font-mono">
+              ₹{totalBalanceInfo.totalBalance.toLocaleString('en-IN')}
+            </span>
+          </div>
         </div>
       </div>
 
