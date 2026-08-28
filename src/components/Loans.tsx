@@ -637,48 +637,17 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
         </div>
       </div>
 
-      {/* Aggregate Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {/* Total Given */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-6 rounded-3xl shadow-sm flex items-center justify-between">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Loans Given</p>
-            <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">
-              ₹{totalGiven.toLocaleString('en-IN')}
-            </h3>
-            <p className="text-xs text-zinc-400 font-medium">All approved charity loans</p>
-          </div>
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 rounded-2xl shrink-0">
-            <DollarSign className="w-6 h-6" />
-          </div>
+      {/* Remaining Collectible Balance Card */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-6 rounded-3xl shadow-sm flex items-center justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Remaining Balance</p>
+          <h3 className={`text-2xl font-black ${remainingBalance > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+            ₹{remainingBalance.toLocaleString('en-IN')}
+          </h3>
+          <p className="text-xs text-zinc-400 font-medium">Active collectible credit</p>
         </div>
-
-        {/* Total Repaid */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-6 rounded-3xl shadow-sm flex items-center justify-between">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Returned</p>
-            <h3 className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              ₹{totalRepaid.toLocaleString('en-IN')}
-            </h3>
-            <p className="text-xs text-zinc-400 font-medium">Successful repayments received</p>
-          </div>
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
-            <CheckCircle className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Net Remaining Balance */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-6 rounded-3xl shadow-sm flex items-center justify-between">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Remaining Balance</p>
-            <h3 className={`text-2xl font-black ${remainingBalance > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
-              ₹{remainingBalance.toLocaleString('en-IN')}
-            </h3>
-            <p className="text-xs text-zinc-400 font-medium">Active collectible credit</p>
-          </div>
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-2xl shrink-0">
-            <TrendingUp className="w-6 h-6" />
-          </div>
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-2xl shrink-0">
+          <TrendingUp className="w-6 h-6" />
         </div>
       </div>
 
