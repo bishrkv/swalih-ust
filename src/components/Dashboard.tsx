@@ -4,12 +4,7 @@ import {
   TrendingUp,
   CreditCard,
   Calendar,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  HelpCircle,
-  ArrowRight,
-  Info
+  Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Member, MonthlyCollection, Loan, LoanRepayment, Income, Expense, ActiveTab, Drawing, F5WCollection } from '../types';
@@ -66,12 +61,7 @@ export default function Dashboard({
   const {
     totalBalance,
     cashInHand,
-    googlePayBalance,
-    sumOfCashAndGPay,
-    grandTotalFund,
-    remainingLoanBalance,
-    totalGivenAmount,
-    formulaString
+    googlePayBalance
   } = financials;
 
   // Formatted date and time
@@ -188,78 +178,6 @@ export default function Dashboard({
             </motion.div>
           );
         })}
-      </div>
-
-      {/* Detailed Accounting Breakdown Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 gap-2">
-          <div>
-            <h3 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Financial Balance Formula & Ledger Reconciliation
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono">
-              Total Balance (Cash + Google Pay) = Grand Total − Loan Total − Given Amount Total
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigate('grand-total')}
-            className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-bold flex items-center gap-1 cursor-pointer shrink-0"
-          >
-            Grand Total Ledger <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-1">
-            <span className="text-zinc-400 text-[10px] uppercase font-bold">1. Grand Total Fund</span>
-            <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 font-mono">
-              ₹{grandTotalFund.toLocaleString('en-IN')}
-            </p>
-            <p className="text-[10px] text-zinc-500">Monthly + F5W Paid</p>
-          </div>
-
-          <div className="p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-1">
-            <span className="text-zinc-400 text-[10px] uppercase font-bold">2. Loan Total</span>
-            <p className="font-bold text-sm text-amber-600 dark:text-amber-400 font-mono">
-              −₹{remainingLoanBalance.toLocaleString('en-IN')}
-            </p>
-            <p className="text-[10px] text-zinc-500">Active Outstanding Loans</p>
-          </div>
-
-          <div className="p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-1">
-            <span className="text-zinc-400 text-[10px] uppercase font-bold">3. Given Amount Total</span>
-            <p className="font-bold text-sm text-rose-600 dark:text-rose-400 font-mono">
-              −₹{totalGivenAmount.toLocaleString('en-IN')}
-            </p>
-            <p className="text-[10px] text-zinc-500">Marriage Aid & Grants</p>
-          </div>
-
-          <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/30 rounded-xl space-y-1">
-            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] uppercase font-bold">= Total Balance</span>
-            <p className="font-bold text-sm text-emerald-700 dark:text-emerald-300 font-mono">
-              ₹{totalBalance.toLocaleString('en-IN')}
-            </p>
-            <p className="text-[10px] text-emerald-600/80">Cash + GPay Balance</p>
-          </div>
-        </div>
-
-        {/* Cash & GPay Sub-breakdown */}
-        <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/70 dark:border-emerald-900/30 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-zinc-500 dark:text-zinc-400 text-xs">Ledger Breakdown:</span>
-            <span className="font-bold text-zinc-800 dark:text-zinc-200">
-              Cash in Hand: <span className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">₹{cashInHand.toLocaleString('en-IN')}</span>
-            </span>
-            <span className="text-zinc-400">+</span>
-            <span className="font-bold text-zinc-800 dark:text-zinc-200">
-              Google Pay: <span className="font-mono text-sky-700 dark:text-sky-400 font-bold">₹{googlePayBalance.toLocaleString('en-IN')}</span>
-            </span>
-          </div>
-          <div className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
-            = ₹{sumOfCashAndGPay.toLocaleString('en-IN')} Total Balance
-          </div>
-        </div>
       </div>
     </div>
   );
