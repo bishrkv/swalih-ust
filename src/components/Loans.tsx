@@ -552,21 +552,7 @@ export default function Loans({ members, loans, repayments, addToast }: LoansPro
         await deleteLoan(deleteTarget.id);
         addToast('Loan disbursement cleared successfully', 'success');
       } else {
-        // Retrieve the repayment first to find its loanId and amount
-        const repaymentToDelete = repayments.find(r => r.id === deleteTarget.id);
-        if (repaymentToDelete) {
-          // Add amount back to the loan if loanId is valid
-          if (repaymentToDelete.loanId && repaymentToDelete.loanId !== 'general') {
-            const associatedLoan = actualLoans.find(l => l.id === repaymentToDelete.loanId);
-            if (associatedLoan) {
-              const updatedLoan: Loan = {
-                ...associatedLoan,
-                amount: associatedLoan.amount + repaymentToDelete.amount
-              };
-              await saveLoan(updatedLoan);
-            }
-          }
-        }
+        // Deleting repayment record directly without affecting the remaining loan balance
         await deleteRepayment(deleteTarget.id);
         addToast('Loan repayment receipt cleared successfully', 'success');
       }
